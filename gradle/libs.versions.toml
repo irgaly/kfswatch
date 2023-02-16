@@ -1,0 +1,35 @@
+[versions]
+kfswatch = "0.9.0"
+kotlin = "1.8.10"
+kotlinx-coroutines = "1.6.4"
+kotest = "5.5.1"
+gradle-android = "7.4.1"
+gradle-android-compile-sdk = "33"
+gradle-android-target-sdk = "33"
+gradle-android-min-sdk = "16"
+
+[libraries]
+gradle-multiplatform = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
+gradle-android = { module = "com.android.tools.build:gradle", version.ref = "gradle-android" }
+kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinx-coroutines" }
+kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "kotlinx-coroutines" }
+test-kotest-runner = { module = "io.kotest:kotest-runner-junit5", version.ref = "kotest" }
+test-kotest-assertions = { module = "io.kotest:kotest-assertions-core", version.ref = "kotest" }
+test-kotest-engine = { module = "io.kotest:kotest-framework-engine", version.ref = "kotest" }
+test-mockk = { module = "io.mockk:mockk", version = "1.13.2" }
+test-turbine = { module = "app.cash.turbine:turbine", version = "0.12.1" }
+klock = { module = "com.soywiz.korlibs.klock:klock", version = "3.4.0" }
+kfswatch = { module = "io.github.irgaly.kfswatch:kfswatch", version.ref = "kfswatch" }
+
+[bundles]
+test-common = [
+    "kotlinx-coroutines-test", "test-kotest-engine",
+    "test-kotest-assertions", "test-turbine"]
+
+[plugins]
+kotest-multiplatform = { id = "io.kotest.multiplatform", version.ref = "kotest" }
+buildlogic-multiplatform-library = { id = "build-logic.multiplatform.library", version = "unspecified" }
+buildlogic-android-application = { id = "build-logic.android.application", version = "unspecified" }
+buildlogic-android-library = { id = "build-logic.android.library", version = "unspecified" }
+dokka = { id = "org.jetbrains.dokka", version = "1.7.20" }
+nexus-publish = { id = "io.github.gradle-nexus.publish-plugin", version = "1.1.0" }
