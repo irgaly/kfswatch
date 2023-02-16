@@ -96,7 +96,8 @@ fun Project.configureMultiplatformLibrary() {
         // watchos() - watchosArm64() // Apple watchOS on ARM64_32 platforms (Apple Watch Series 4 and newer)
         // watchos() - watchosX64() // Apple watchOS 64-bit simulator (watchOS 7.0 and newer) on x86_64 platforms
         watchosSimulatorArm64() // Apple watchOS simulator on Apple Silicon platforms
-        watchosDeviceArm64() // Apple watchOS on ARM64 platforms
+        // kotlinx-coroutines-core not supports watchosDeviceArm64
+        //watchosDeviceArm64() // Apple watchOS on ARM64 platforms
         // tvOS
         tvos()
         // tvos() - tvosArm64() // Apple tvOS on ARM64 platforms (Apple TV 4th generation and newer)
@@ -174,12 +175,14 @@ fun Project.configureMultiplatformLibrary() {
             val watchosSimulatorArm64Test by getting {
                 dependsOn(iosTest)
             }
+            /*
             val watchosDeviceArm64Main by getting {
                 dependsOn(iosMain)
             }
             val watchosDeviceArm64Test by getting {
                 dependsOn(iosTest)
             }
+             */
             val tvosSimulatorArm64Main by getting {
                 dependsOn(iosMain)
             }
