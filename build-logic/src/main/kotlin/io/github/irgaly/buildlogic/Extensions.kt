@@ -1,5 +1,7 @@
 package io.github.irgaly.buildlogic
 
+import com.android.build.api.dsl.ApplicationExtension
+import com.android.build.api.dsl.CommonExtension
 import com.android.build.gradle.BaseExtension
 import com.android.build.gradle.LibraryExtension
 import org.gradle.api.Project
@@ -14,10 +16,16 @@ import java.io.ByteArrayOutputStream
  */
 fun Project.configureAndroid() {
     extensions.configure<BaseExtension> {
-        compileSdkVersion(libs.version("gradle-android-compile-sdk").toInt())
-        defaultConfig {
-            minSdk = libs.version("gradle-android-min-sdk").toInt()
-            targetSdk = libs.version("gradle-android-target-sdk").toInt()
+        (this as CommonExtension<*, *, *, *>).apply {
+            compileSdk = libs.version("gradle-android-compile-sdk").toInt()
+            defaultConfig {
+                minSdk = libs.version("gradle-android-min-sdk").toInt()
+            }
+            if (this is ApplicationExtension) {
+                defaultConfig {
+                    targetSdk = libs.version("gradle-android-target-sdk").toInt()
+                }
+            }
         }
     }
 }
@@ -205,6 +213,7 @@ fun Project.configureMultiplatformLibrary() {
                 dependsOn(nativeMain)
             }
             val mingwX64Test by getting {
+                dependsOn(mingwX64Main)
                 dependsOn(nativeTest)
             }
         }
