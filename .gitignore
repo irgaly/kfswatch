@@ -1,5 +1,5 @@
+.idea/.gitignore
 .idea/runConfigurations
-.idea/deploymentTargetDropDown.xml
 .idea/kotlinc.xml
 .idea/inspectionProfiles
 
@@ -26,7 +26,7 @@ output.json
 
 # IntelliJ
 *.iml
-.idea/
+#.idea/
 misc.xml
 deploymentTargetDropDown.xml
 render.experimental.xml
@@ -55,7 +55,7 @@ gen-external-apklibs
 .idea/**/workspace.xml
 .idea/**/tasks.xml
 .idea/**/usage.statistics.xml
-.idea/**/dictionaries
+#.idea/**/dictionaries
 .idea/**/shelf
 
 # AWS User-specific
@@ -81,14 +81,14 @@ gen-external-apklibs
 # When using Gradle or Maven with auto-import, you should exclude module files,
 # since they will be recreated, and may cause churn.  Uncomment if using
 # auto-import.
-# .idea/artifacts
-# .idea/compiler.xml
-# .idea/jarRepositories.xml
-# .idea/modules.xml
-# .idea/*.iml
-# .idea/modules
-# *.iml
-# *.ipr
+.idea/artifacts
+.idea/compiler.xml
+.idea/jarRepositories.xml
+.idea/modules.xml
+.idea/*.iml
+.idea/modules
+*.iml
+*.ipr
 
 # CMake
 cmake-build-*/
@@ -306,7 +306,7 @@ obj/
 .idea/misc.xml
 .idea/modules.xml
 .idea/scopes/scope_settings.xml
-.idea/dictionaries
+#.idea/dictionaries
 .idea/vcs.xml
 .idea/jsLibraryMappings.xml
 .idea/datasources.xml
