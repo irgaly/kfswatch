@@ -53,14 +53,21 @@ jobs:
         run: |
           echo TBA
       - name: Android Test
+        uses: reactivecircus/android-emulator-runner@v2
         if: matrix.platform == 'macos-latest'
-        run: |
-          ./gradlew :kfswatch:pixel6GroupDebugAndroidTest
+        with:
+          api-level: 33
+          target: google_apis
+          arch: x86_64
+          script: |
+            #./gradlew :kfswatch:pixel6GroupDebugAndroidTest
+            ./gradlew :kfswatch:connectedDebugAndroidTest
       - uses: actions/upload-artifact@v3
         with:
           name: Android Emulator Test Report
           path: |
             **/androidTests/managedDevice/allDevices
+            **/androidTests/connected
       - name: Linux Test
         if: matrix.platform == 'ubuntu-latest'
         run: |
