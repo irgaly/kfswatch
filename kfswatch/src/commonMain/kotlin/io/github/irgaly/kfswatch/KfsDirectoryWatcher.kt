@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 /**
@@ -43,7 +44,7 @@ import kotlinx.coroutines.withContext
 class KfsDirectoryWatcher(
     private val scope: CoroutineScope,
     private val dispatcher: CoroutineDispatcher = Dispatchers.Default,
-    logger: KfsLogger? = null
+    private val logger: KfsLogger? = null
 ) {
     private val mutex = Mutex()
     private val onEventMutableSharedFlow = MutableSharedFlow<KfsDirectoryWatcherEvent>()
@@ -63,6 +64,11 @@ class KfsDirectoryWatcher(
      */
     var watchingDirectories: List<String> = mutableListOf()
         private set
+
+    /**
+     * File System Event flow
+     */
+    val onEventFlow: Flow<KfsDirectoryWatcherEvent> = onEventMutableSharedFlow.asSharedFlow()
 
     /**
      * Start watching event flow
@@ -105,7 +111,7 @@ class KfsDirectoryWatcher(
      */
     suspend fun add(vararg targetDirectories: String) {
         withContext(dispatcher) {
-            mutex.lock {
+            mutex.withLock {
                 if (closed) {
                     error("This watcher instance is already closed")
                 }
@@ -119,7 +125,7 @@ class KfsDirectoryWatcher(
      */
     suspend fun remove(vararg targetDirectories: String) {
         withContext(dispatcher) {
-            mutex.lock {
+            mutex.withLock {
                 if (closed) {
                     error("This watcher instance is already closed")
                 }
@@ -133,7 +139,7 @@ class KfsDirectoryWatcher(
      */
     suspend fun removeAll() {
         withContext(dispatcher) {
-            mutex.lock {
+            mutex.withLock {
                 if (closed) {
                     error("This watcher instance is already closed")
                 }
@@ -151,7 +157,7 @@ class KfsDirectoryWatcher(
      */
     suspend fun close() {
         withContext(dispatcher) {
-            mutex.lock {
+            mutex.withLock {
                 if (!closed) {
                     closed = true
                     watcher.close()
@@ -162,6 +168,7 @@ class KfsDirectoryWatcher(
 
     private fun onEvent(targetDirectory: String, path: String, event: FileWatcherEvent) {
         scope.launch(dispatcher) {
+            logger?.debug("onEvent: target=$targetDirectory, path=$path, event=$event")
             onEventMutableSharedFlow.emit(
                 KfsDirectoryWatcherEvent(
                     targetDirectory,
@@ -174,7 +181,8 @@ class KfsDirectoryWatcher(
 
     private fun onStart(targetDirectory: String) {
         scope.launch(dispatcher) {
-            mutex.lock {
+            logger?.debug("onStart: target=$targetDirectory")
+            mutex.withLock {
                 watchingDirectories = watchingDirectories + targetDirectory
             }
             onStartMutableSharedFlow.emit(targetDirectory)
@@ -183,7 +191,8 @@ class KfsDirectoryWatcher(
 
     private fun onStop(targetDirectory: String) {
         scope.launch(dispatcher) {
-            mutex.lock {
+            logger?.debug("onStop: target=$targetDirectory")
+            mutex.withLock {
                 watchingDirectories = watchingDirectories - targetDirectory
             }
             onStopMutableSharedFlow.emit(targetDirectory)
@@ -192,6 +201,7 @@ class KfsDirectoryWatcher(
 
     private fun onError(targetDirectory: String?, message: String) {
         scope.launch(dispatcher) {
+            logger?.error("onError: target=$targetDirectory, message=$message")
             onErrorMutableSharedFlow.emit(
                 KfsDirectoryWatcherError(
                     targetDirectory,
