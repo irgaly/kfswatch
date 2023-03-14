@@ -35,7 +35,7 @@ internal actual class FileWatcher actual constructor(
                     continue
                 }
                 val targetFile = File(targetDirectory)
-                if (targetFile.exists()) {
+                if (!targetFile.exists()) {
                     onError(targetDirectory, "directory not exists: $targetDirectory")
                     continue
                 }
@@ -50,13 +50,29 @@ internal actual class FileWatcher actual constructor(
                             MOVED_TO or // 子の移動
                             MODIFY // 子の変更
                 fun handleEvent(event: Int, path: String?) {
-                    checkNotNull(path)
-                    when (event) {
-                        CREATE -> onEvent(targetDirectory, path, FileWatcherEvent.Create)
-                        DELETE -> onEvent(targetDirectory, path, FileWatcherEvent.Delete)
-                        MOVED_FROM -> onEvent(targetDirectory, path, FileWatcherEvent.Delete)
-                        MOVED_TO -> onEvent(targetDirectory, path, FileWatcherEvent.Create)
-                        MODIFY -> onEvent(targetDirectory, path, FileWatcherEvent.Modify)
+                    logger?.debug {
+                        "FileObserver.onEvent: event = ${event.toString(16)}, path = $path"
+                    }
+                    when {
+                        ((event and CREATE) == CREATE) -> {
+                            onEvent(targetDirectory, checkNotNull(path), FileWatcherEvent.Create)
+                        }
+
+                        ((event and DELETE) == DELETE) -> {
+                            onEvent(targetDirectory, checkNotNull(path), FileWatcherEvent.Delete)
+                        }
+
+                        ((event and MOVED_FROM) == MOVED_FROM) -> {
+                            onEvent(targetDirectory, checkNotNull(path), FileWatcherEvent.Delete)
+                        }
+
+                        ((event and MOVED_TO) == MOVED_TO) -> {
+                            onEvent(targetDirectory, checkNotNull(path), FileWatcherEvent.Create)
+                        }
+
+                        ((event and MODIFY) == MODIFY) -> {
+                            onEvent(targetDirectory, checkNotNull(path), FileWatcherEvent.Modify)
+                        }
                     }
                 }
                 val observer = if (Build.VERSION_CODES.Q <= Build.VERSION.SDK_INT) {
