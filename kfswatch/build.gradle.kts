@@ -40,13 +40,13 @@ android {
                 device = "Pixel 6"
                 apiLevel = 33 // Android 13
             }
-            val pixel6android9 by devices.registering(ManagedVirtualDevice::class) {
+            val pixel6android8 by devices.registering(ManagedVirtualDevice::class) {
                 device = "Pixel 6"
-                apiLevel = 28 // Android 9
+                apiLevel = 27 // Android 8
             }
             groups {
                 register("pixel6") {
-                    targetDevices.addAll(listOf(pixel6android13.get(), pixel6android9.get()))
+                    targetDevices.addAll(listOf(pixel6android13.get(), pixel6android8.get()))
                 }
             }
         }

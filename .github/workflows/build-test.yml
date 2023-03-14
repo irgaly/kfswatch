@@ -1,0 +1,78 @@
+name: Build & Test
+on:
+  push:
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [macos-latest, ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.platform }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-java@v3
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: ./.github/actions/gradle-cache
+      - name: JVM Build
+        run: |
+          echo TBA
+      - name: Nodejs Build
+        run: |
+          echo TBA
+      - name: Android Build
+        if: matrix.platform == 'macos-latest'
+        run: |
+          ./gradlew :kfswatch:packageDebugAndroidTest
+      - name: Linux Build
+        if: matrix.platform == 'ubuntu-latest'
+        run: |
+          echo TBA
+      - name: Windows Build
+        if: matrix.platform == 'windows-latest'
+        run: |
+          echo TBA
+      - name: iOS Build
+        if: matrix.platform == 'macos-latest'
+        run: |
+          echo TBA
+      - name: macOS Build
+        if: matrix.platform == 'macos-latest'
+        run: |
+          echo TBA
+      - name: JVM Test
+        run: |
+          echo TBA
+      - name: Nodejs Test
+        run: |
+          echo TBA
+      - name: Android Test
+        if: matrix.platform == 'macos-latest'
+        run: |
+          ./gradlew :kfswatch:pixel6GroupDebugAndroidTest
+      - uses: actions/upload-artifact@v3
+        with:
+          name: Android Emulator Test Report
+          path: |
+            **/androidTests/managedDevice/allDevices
+      - name: Linux Test
+        if: matrix.platform == 'ubuntu-latest'
+        run: |
+          echo TBA
+      - name: Windows Test
+        if: matrix.platform == 'windows-latest'
+        run: |
+          echo TBA
+      - name: iOS Test
+        if: matrix.platform == 'macos-latest'
+        run: |
+          echo TBA
+      - name: macOS Test
+        if: matrix.platform == 'macos-latest'
+        run: |
+          echo TBA

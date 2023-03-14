@@ -1,0 +1,34 @@
+name: Gradle Cache
+runs:
+  using: composite
+  steps:
+    - id: get-month
+      shell: bash
+      run: echo "month=$(TZ=Asia/Tokyo date +%m)" >> $GITHUB_OUTPUT
+    - uses: actions/cache@v3
+      with:
+        path: ~/.gradle/wrapper
+        key: gradle-wrapper-${{ hashFiles('gradle/wrapper/gradle-wrapper.properties') }}
+    - uses: actions/cache@v3
+      with:
+        path: |
+          ~/.gradle/caches/jars-*
+          ~/.gradle/caches/transforms-*
+          ~/.gradle/caches/modules-*
+        key: gradle-dependencies-${{ steps.get-month.outputs.month }}-${{ hashFiles('gradle/libs.versions.toml', '**/*.gradle.kts', 'build-logic/**/*.{kt,kts}') }}
+        restore-keys: gradle-dependencies-${{ steps.get-month.outputs.month }}-
+    - uses: actions/cache@v3
+      with:
+        path: |
+          ~/.konan
+          ~/.gradle/native
+        key: ${{ runner.os }}-kotlin-native-${{ steps.get-month.outputs.month }}-${{ hashFiles('gradle/libs.versions.toml', '**/*.gradle.kts') }}
+        restore-keys: ${{ runner.os }}-kotlin-native-${{ steps.get-month.outputs.month }}-
+    - uses: actions/cache@v3
+      with:
+        path: |
+          ~/.gradle/caches/build-cache-*
+          ~/.gradle/caches/[0-9]*.*
+          .gradle
+        key: ${{ runner.os }}-gradle-build-${{ github.workflow }}-${{ steps.get-month.outputs.month }}-${{ github.sha }}
+        restore-keys: ${{ runner.os }}-gradle-build-${{ github.workflow }}-${{ steps.get-month.outputs.month }}-
