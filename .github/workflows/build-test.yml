@@ -40,6 +40,7 @@ jobs:
       - name: iOS Build
         if: matrix.platform == 'macos-latest'
         run: |
+          ./gradlew :kfswatch:linkDebugTestIosX64
           echo TBA
       - name: macOS Build
         if: matrix.platform == 'macos-latest'
@@ -71,7 +72,7 @@ jobs:
       - name: iOS Test
         if: matrix.platform == 'macos-latest'
         run: |
-          echo TBA
+          ./gradlew :kfswatch:iosX64Test
       - name: macOS Test
         if: matrix.platform == 'macos-latest'
         run: |
