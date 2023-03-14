@@ -31,7 +31,7 @@ test-common = [
     "test-kotest-assertions", "test-turbine"]
 test-android-instrumented = [
     "test-kotest-assertions", "test-android-junit5", "test-android-junit5-core", "test-android-runner",
-    "kotlinx-coroutines-test"
+    "kotlinx-coroutines-test", "test-turbine"
 ]
 
 [plugins]
