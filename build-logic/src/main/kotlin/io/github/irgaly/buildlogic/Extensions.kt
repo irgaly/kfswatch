@@ -38,6 +38,15 @@ fun Project.configureAndroidLibrary() {
         buildFeatures {
             buildConfig = false
         }
+        packagingOptions {
+            resources {
+                excludes.add("META-INF/AL2.0")
+                excludes.add("META-INF/LGPL2.1")
+                excludes.add("META-INF/licenses/ASM")
+                pickFirsts.add("win32-x86-64/attach_hotspot_windows.dll")
+                pickFirsts.add("win32-x86/attach_hotspot_windows.dll")
+            }
+        }
         sourceSets.configureEach {
             java.srcDirs("src/$name/kotlin")
         }

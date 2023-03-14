@@ -1,9 +1,11 @@
+import com.android.build.api.dsl.ManagedVirtualDevice
 import org.jetbrains.dokka.gradle.DokkaTask
 
 plugins {
     alias(libs.plugins.buildlogic.multiplatform.library)
     alias(libs.plugins.buildlogic.android.library)
     alias(libs.plugins.dokka)
+    alias(libs.plugins.android.junit5)
 }
 
 kotlin {
@@ -13,11 +15,42 @@ kotlin {
                 implementation(libs.kotlinx.coroutines.core)
             }
         }
+        val androidInstrumentedTest by getting {
+            dependencies {
+                implementation(libs.bundles.test.android.instrumented)
+            }
+        }
     }
+}
+
+dependencies {
+    androidTestRuntimeOnly(libs.test.android.junit5.runner)
 }
 
 android {
     namespace = "io.github.irgaly.kfswatch"
+    defaultConfig {
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        testInstrumentationRunnerArguments["runnerBuilder"] =
+            "de.mannodermaus.junit5.AndroidJUnit5Builder"
+    }
+    testOptions {
+        managedDevices {
+            val pixel6android13 by devices.registering(ManagedVirtualDevice::class) {
+                device = "Pixel 6"
+                apiLevel = 33 // Android 13
+            }
+            val pixel6android9 by devices.registering(ManagedVirtualDevice::class) {
+                device = "Pixel 6"
+                apiLevel = 28 // Android 9
+            }
+            groups {
+                register("pixel6") {
+                    targetDevices.addAll(listOf(pixel6android13.get(), pixel6android9.get()))
+                }
+            }
+        }
+    }
 }
 
 val dokkaHtml by tasks.getting(DokkaTask::class)
