@@ -16,6 +16,7 @@ kotlin {
             }
         }
         val androidInstrumentedTest by getting {
+            dependsOn(commonTest.get())
             dependencies {
                 implementation(libs.bundles.test.android.instrumented)
             }
