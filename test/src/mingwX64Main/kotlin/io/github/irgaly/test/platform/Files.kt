@@ -8,6 +8,8 @@ import kotlinx.cinterop.staticCFunction
 import kotlinx.cinterop.toCValues
 import kotlinx.cinterop.toKString
 import kotlinx.cinterop.value
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import platform.posix.FTW_DEPTH
 import platform.posix.FTW_PHYS
 import platform.posix.nftw
@@ -36,8 +38,8 @@ import platform.windows.WriteFile
 
 actual class Files {
     actual companion object {
-        actual fun createTemporaryDirectory(): String {
-            return memScoped {
+        actual suspend fun createTemporaryDirectory(): String = withContext(Dispatchers.Default) {
+            memScoped {
                 val tempPathBuffer = allocArray<TCHARVar>(MAX_PATH)
                 val uuid = alloc<UUID>()
                 val rpcString = alloc<RPC_WSTRVar>()
@@ -62,50 +64,53 @@ actual class Files {
             }
         }
 
-        actual fun createDirectory(path: String): Boolean {
-            val result = CreateDirectoryW(
-                lpPathName = path,
-                lpSecurityAttributes = null
-            )
-            return (result != FALSE)
-        }
-
-        actual fun writeFile(path: String, text: String): Boolean {
-            return memScoped {
-                val handle = CreateFileW(
-                    lpFileName = path,
-                    dwDesiredAccess = GENERIC_WRITE,
-                    dwShareMode = (FILE_SHARE_DELETE or FILE_SHARE_READ or FILE_SHARE_WRITE).toUInt(),
-                    lpSecurityAttributes = null,
-                    dwCreationDisposition = OPEN_ALWAYS, // 既存ファイルを開く(内容はそのまま)、または新規作成する
-                    dwFlagsAndAttributes = FILE_ATTRIBUTE_NORMAL,
-                    hTemplateFile = null
+        actual suspend fun createDirectory(path: String): Boolean =
+            withContext(Dispatchers.Default) {
+                val result = CreateDirectoryW(
+                    lpPathName = path,
+                    lpSecurityAttributes = null
                 )
-                val bytes = text.encodeToByteArray().toCValues()
-                val written = alloc<DWORDVar>()
-                WriteFile(
-                    hFile = handle,
-                    lpBuffer = bytes.ptr,
-                    nNumberOfBytesToWrite = bytes.size.toUInt(),
-                    lpNumberOfBytesWritten = written.ptr,
-                    lpOverlapped = null
-                )
-                SetEndOfFile(hFile = handle)
-                CloseHandle(hObject = handle)
-                (written.value == bytes.size.toUInt())
+                (result != FALSE)
             }
-        }
 
-        actual fun deleteRecursively(path: String): Boolean {
-            val ret = nftw(
-                path,
-                staticCFunction { pathName, _, _, _ ->
-                    remove(pathName!!.toKString())
-                },
-                64,
-                FTW_DEPTH or FTW_PHYS
-            )
-            return (ret != -1)
-        }
+        actual suspend fun writeFile(path: String, text: String): Boolean =
+            withContext(Dispatchers.Default) {
+                memScoped {
+                    val handle = CreateFileW(
+                        lpFileName = path,
+                        dwDesiredAccess = GENERIC_WRITE,
+                        dwShareMode = (FILE_SHARE_DELETE or FILE_SHARE_READ or FILE_SHARE_WRITE).toUInt(),
+                        lpSecurityAttributes = null,
+                        dwCreationDisposition = OPEN_ALWAYS, // 既存ファイルを開く(内容はそのまま)、または新規作成する
+                        dwFlagsAndAttributes = FILE_ATTRIBUTE_NORMAL,
+                        hTemplateFile = null
+                    )
+                    val bytes = text.encodeToByteArray().toCValues()
+                    val written = alloc<DWORDVar>()
+                    WriteFile(
+                        hFile = handle,
+                        lpBuffer = bytes.ptr,
+                        nNumberOfBytesToWrite = bytes.size.toUInt(),
+                        lpNumberOfBytesWritten = written.ptr,
+                        lpOverlapped = null
+                    )
+                    SetEndOfFile(hFile = handle)
+                    CloseHandle(hObject = handle)
+                    (written.value == bytes.size.toUInt())
+                }
+            }
+
+        actual suspend fun deleteRecursively(path: String): Boolean =
+            withContext(Dispatchers.Default) {
+                val ret = nftw(
+                    path,
+                    staticCFunction { pathName, _, _, _ ->
+                        remove(pathName!!.toKString())
+                    },
+                    64,
+                    FTW_DEPTH or FTW_PHYS
+                )
+                (ret != -1)
+            }
     }
 }

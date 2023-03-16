@@ -5,6 +5,8 @@ import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.staticCFunction
 import kotlinx.cinterop.toCValues
 import kotlinx.cinterop.toKString
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import platform.posix.FTW_DEPTH
 import platform.posix.FTW_PHYS
 import platform.posix.O_CREAT
@@ -21,32 +23,34 @@ import platform.posix.write
 
 actual class Files {
     actual companion object {
-        actual fun createTemporaryDirectory(): String {
+        actual suspend fun createTemporaryDirectory(): String = withContext(Dispatchers.Default) {
             val tempDirectory =
                 sequenceOf("TMPDIR", "TMP", "TEMP", "TEMPDIR").firstNotNullOfOrNull {
                     getenv(it)?.toKString()
                 } ?: "/tmp"
             val directory = mkdtemp("$tempDirectory/tmpdir.XXXXXX".cstr)?.toKString()
-            return checkNotNull(directory)
+            checkNotNull(directory)
         }
 
-        actual fun createDirectory(path: String): Boolean {
-            val result = mkdir(__path = path, __mode = 755)
-            return (result == 0)
-        }
+        actual suspend fun createDirectory(path: String): Boolean =
+            withContext(Dispatchers.Default) {
+                val result = mkdir(__path = path, __mode = 755)
+                (result == 0)
+            }
 
-        actual fun writeFile(path: String, text: String): Boolean {
-            return memScoped {
-                val fileDescriptor = open(
-                    __file = path,
-                    __oflag = (O_WRONLY or O_CREAT or O_TRUNC)
-                )
-                try {
-                    val bytes = text.encodeToByteArray().toCValues()
-                    val result = write(
-                        __fd = fileDescriptor,
-                        __buf = bytes,
-                        __n = bytes.size.toULong()
+        actual suspend fun writeFile(path: String, text: String): Boolean =
+            withContext(Dispatchers.Default) {
+                memScoped {
+                    val fileDescriptor = open(
+                        __file = path,
+                        __oflag = (O_WRONLY or O_CREAT or O_TRUNC)
+                    )
+                    try {
+                        val bytes = text.encodeToByteArray().toCValues()
+                        val result = write(
+                            __fd = fileDescriptor,
+                            __buf = bytes,
+                            __n = bytes.size.toULong()
                     )
                     (0 <= result)
                 } finally {
@@ -55,16 +59,17 @@ actual class Files {
             }
         }
 
-        actual fun deleteRecursively(path: String): Boolean {
-            val ret = nftw(
-                path,
-                staticCFunction { pathName, _, _, _ ->
-                    remove(checkNotNull(pathName).toKString())
-                },
-                64,
-                FTW_DEPTH or FTW_PHYS
-            )
-            return (ret != -1)
-        }
+        actual suspend fun deleteRecursively(path: String): Boolean =
+            withContext(Dispatchers.Default) {
+                val ret = nftw(
+                    path,
+                    staticCFunction { pathName, _, _, _ ->
+                        remove(checkNotNull(pathName).toKString())
+                    },
+                    64,
+                    FTW_DEPTH or FTW_PHYS
+                )
+                (ret != -1)
+            }
     }
 }

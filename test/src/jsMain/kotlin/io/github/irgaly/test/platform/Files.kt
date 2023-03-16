@@ -1,43 +1,69 @@
 package io.github.irgaly.test.platform
 
-private val fs: dynamic get() = js("require('fs')")
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
+import kotlin.coroutines.suspendCoroutine
+
+private val fs: dynamic get() = js("require('fs').promises")
 private val path: dynamic get() = js("require('path')")
 private val os: dynamic get() = js("require('os')")
 
 actual class Files {
     actual companion object {
-        actual fun createTemporaryDirectory(): String {
-            return if (isBrowser()) {
-                "js-browser-dummy-temporary-directory"
+        actual suspend fun createTemporaryDirectory(): String = suspendCoroutine { continuation ->
+            if (isBrowser()) {
+                continuation.resume("js-browser-dummy-temporary-directory")
             } else {
-                fs.mkdtempSync(path.join(os.tmpdir(), "")).unsafeCast<String>()
+                @Suppress("UnsafeCastFromDynamic")
+                fs.mkdtemp(path.join(os.tmpdir(), "")).then { path ->
+                    continuation.resume(path.unsafeCast<String>())
+                }.catch { error ->
+                    continuation.resumeWithException(IllegalStateException(error.message.unsafeCast<String>()))
+                }
             }
         }
 
-        actual fun createDirectory(path: String): Boolean {
-            return try {
-                fs.mkdirSync(path)
-                true
-            } catch(_: Exception) {
-                false
+        actual suspend fun createDirectory(path: String): Boolean =
+            suspendCoroutine { continuation ->
+                if (isBrowser()) {
+                    continuation.resume(true)
+                } else {
+                    @Suppress("UnsafeCastFromDynamic")
+                    fs.mkdir(path).then {
+                        continuation.resume(true)
+                    }.catch {
+                        continuation.resume(false)
+                    }
+                }
             }
-        }
 
-        actual fun writeFile(path: String, text: String): Boolean {
-            return try {
-                fs.writeFileSync(path, text)
-                true
-            } catch(_: Exception) {
-                false
+        actual suspend fun writeFile(path: String, text: String): Boolean =
+            suspendCoroutine { continuation ->
+                if (isBrowser()) {
+                    continuation.resume(true)
+                } else {
+                    @Suppress("UnsafeCastFromDynamic")
+                    fs.writeFile(path, text).then {
+                        continuation.resume(true)
+                    }.catch {
+                        continuation.resume(false)
+                    }
+                }
             }
-        }
 
-        actual fun deleteRecursively(path: String): Boolean {
-            if (isNodejs()) {
-                fs.rmSync(path, js("{recursive: true, force: true}"))
+        actual suspend fun deleteRecursively(path: String): Boolean =
+            suspendCoroutine { continuation ->
+                if (isBrowser()) {
+                    continuation.resume(true)
+                } else {
+                    @Suppress("UnsafeCastFromDynamic")
+                    fs.rm(path, js("{recursive: true, force: true}")).then {
+                        continuation.resume(true)
+                    }.catch {
+                        continuation.resume(false)
+                    }
+                }
             }
-            return true
-        }
     }
 }
 
