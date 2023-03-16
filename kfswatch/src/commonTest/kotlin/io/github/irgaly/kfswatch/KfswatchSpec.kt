@@ -2,9 +2,10 @@ package io.github.irgaly.kfswatch
 
 import app.cash.turbine.test
 import app.cash.turbine.testIn
-import io.github.irgaly.kfswatch.internal.platform.Files
 import io.github.irgaly.test.DescribeFunSpec
 import io.github.irgaly.test.extension.tempdir
+import io.github.irgaly.test.platform.Files
+import io.kotest.core.test.TestScope
 import io.kotest.matchers.should
 import io.kotest.matchers.shouldBe
 import kotlin.time.ExperimentalTime
@@ -21,21 +22,34 @@ class KfswatchSpec : DescribeFunSpec({
             println("error: $message")
         }
     }
+
+    fun TestScope.createWatcher(): KfsDirectoryWatcher {
+        return KfsDirectoryWatcher(this, logger = logger)
+    }
+
+    suspend fun mkdirs(path: String) {
+        io.github.irgaly.kfswatch.internal.platform.Files.mkdirs(path)
+    }
     describe("基本機能") {
-        it("directory 作成を検出できる") {
-            val directory = "$tempDirectory/test1"
-            Files.mkdirs(directory)
-            val watcher = KfsDirectoryWatcher(
-                this,
-                logger = logger
-            )
+        it("directory, file 作成を検出できる") {
+            val directory = "$tempDirectory/test1".also { mkdirs(it) }
+            val watcher = createWatcher()
             val errors = watcher.onErrorFlow.testIn(this)
             watcher.onEventFlow.test {
                 watcher.add(directory)
-                Files.mkdirs("$directory/child1")
+                mkdirs("$directory/child1")
                 awaitItem() should {
                     it.event shouldBe KfsEvent.Create
                     it.path shouldBe "child1"
+                }
+                Files.writeFile("$directory/child2", "test")
+                awaitItem() should {
+                    it.event shouldBe KfsEvent.Create
+                    it.path shouldBe "child2"
+                }
+                awaitItem() should {
+                    it.event shouldBe KfsEvent.Modify
+                    it.path shouldBe "child2"
                 }
             }
             errors.ensureAllEventsConsumed()
