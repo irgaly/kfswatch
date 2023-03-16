@@ -1,6 +1,7 @@
 package io.github.irgaly.test.extension
 
 import io.github.irgaly.test.platform.Files
+import io.kotest.common.runBlocking
 import io.kotest.core.TestConfiguration
 
 /**
@@ -8,7 +9,7 @@ import io.kotest.core.TestConfiguration
  * common tempdir()
  */
 fun TestConfiguration.tempdir(clearAfterSpec: Boolean = true): String {
-    val directory = Files.createTemporaryDirectory()
+    val directory = runBlocking { Files.createTemporaryDirectory() }
     if (clearAfterSpec) {
         afterSpec {
             if (!Files.deleteRecursively(directory)) {
