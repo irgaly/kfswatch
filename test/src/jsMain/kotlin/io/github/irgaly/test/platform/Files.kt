@@ -51,6 +51,20 @@ actual class Files {
                 }
             }
 
+        actual suspend fun move(source: String, destination: String): Boolean =
+            suspendCoroutine { continuation ->
+                @Suppress("UnsafeCastFromDynamic")
+                fs.rmdir(destination).catch {
+                    // destination が空ディレクトリであれば削除される
+                }.then {
+                    fs.rename(source, destination).then {
+                        continuation.resume(true)
+                    }.catch {
+                        continuation.resume(false)
+                    }
+                }
+            }
+
         actual suspend fun deleteRecursively(path: String): Boolean =
             suspendCoroutine { continuation ->
                 if (isBrowser()) {

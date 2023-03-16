@@ -19,15 +19,21 @@ import platform.windows.CreateDirectoryW
 import platform.windows.CreateFileW
 import platform.windows.DWORDVar
 import platform.windows.FALSE
+import platform.windows.FILE_ATTRIBUTE_DIRECTORY
 import platform.windows.FILE_ATTRIBUTE_NORMAL
 import platform.windows.FILE_SHARE_DELETE
 import platform.windows.FILE_SHARE_READ
 import platform.windows.FILE_SHARE_WRITE
 import platform.windows.GENERIC_WRITE
+import platform.windows.GetFileAttributesW
 import platform.windows.GetTempPathW
+import platform.windows.INVALID_FILE_ATTRIBUTES
 import platform.windows.MAX_PATH
+import platform.windows.MOVEFILE_REPLACE_EXISTING
+import platform.windows.MoveFileExW
 import platform.windows.OPEN_ALWAYS
 import platform.windows.RPC_WSTRVar
+import platform.windows.RemoveDirectoryW
 import platform.windows.RpcStringFreeW
 import platform.windows.SetEndOfFile
 import platform.windows.TCHARVar
@@ -99,6 +105,31 @@ actual class Files {
                     (written.value == bytes.size.toUInt())
                 }
             }
+
+
+        actual suspend fun move(source: String, destination: String): Boolean =
+            withContext(Dispatchers.Default) {
+                val isDirectory = run {
+                    val attributes = GetFileAttributesW(destination)
+                    if (attributes != INVALID_FILE_ATTRIBUTES) {
+                        ((attributes.toInt() and FILE_ATTRIBUTE_DIRECTORY) != 0)
+                    } else false
+                }
+                if (isDirectory) {
+                    // destination が空ディレクトリであれば削除できる
+                    RemoveDirectoryW(destination)
+                }
+                // https://learn.microsoft.com/ja-jp/windows/win32/api/winbase/nf-winbase-movefileexw
+                val result = MoveFileExW(
+                    lpExistingFileName = source,
+                    lpNewFileName = destination,
+                    // destination がファイルであれば上書きする
+                    // ディレクトリの場合はエラー
+                    dwFlags = MOVEFILE_REPLACE_EXISTING
+                )
+                (result != FALSE)
+            }
+
 
         actual suspend fun deleteRecursively(path: String): Boolean =
             withContext(Dispatchers.Default) {

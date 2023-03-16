@@ -19,6 +19,7 @@ import platform.posix.mkdtemp
 import platform.posix.nftw
 import platform.posix.open
 import platform.posix.remove
+import platform.posix.rename
 import platform.posix.write
 
 actual class Files {
@@ -51,13 +52,24 @@ actual class Files {
                             __fd = fileDescriptor,
                             __buf = bytes,
                             __n = bytes.size.toULong()
-                    )
-                    (0 <= result)
-                } finally {
-                    close(fileDescriptor)
+                        )
+                        (0 <= result)
+                    } finally {
+                        close(fileDescriptor)
+                    }
                 }
             }
-        }
+
+        actual suspend fun move(source: String, destination: String): Boolean =
+            withContext(Dispatchers.Default) {
+                // destination が空のディレクトリであれば上書きされる
+                val result = rename(
+                    __old = source,
+                    __new = destination
+                )
+                (result == 0)
+            }
+
 
         actual suspend fun deleteRecursively(path: String): Boolean =
             withContext(Dispatchers.Default) {

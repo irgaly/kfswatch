@@ -1,5 +1,6 @@
 package io.github.irgaly.test.platform
 
+import kotlinx.cinterop.BooleanVar
 import kotlinx.cinterop.ObjCObjectVar
 import kotlinx.cinterop.alloc
 import kotlinx.cinterop.memScoped
@@ -17,6 +18,7 @@ import platform.Foundation.NSUTF8StringEncoding
 import platform.Foundation.NSUserDomainMask
 import platform.Foundation.temporaryDirectory
 import platform.Foundation.writeToFile
+import platform.posix.rmdir
 
 actual class Files {
     actual companion object {
@@ -66,6 +68,39 @@ actual class Files {
                     encoding = NSUTF8StringEncoding,
                     error = null
                 )
+            }
+
+        actual suspend fun move(source: String, destination: String): Boolean =
+            withContext(Dispatchers.Default) {
+                val manager = NSFileManager.defaultManager
+                val (exists: Boolean, isDirectory: Boolean) = memScoped {
+                    val isDirectory = alloc<BooleanVar>()
+                    val exists = manager.fileExistsAtPath(
+                        destination,
+                        isDirectory = isDirectory.ptr
+                    )
+                    Pair(exists, isDirectory.value)
+                }
+                if (exists) {
+                    if (isDirectory) {
+                        // destination が空ディレクトリであれば削除する
+                        rmdir(destination)
+                    } else {
+                        // destination がファイルであれば削除する
+                        manager.removeItemAtPath(
+                            path = destination,
+                            error = null
+                        )
+                    }
+                }
+                // https://developer.apple.com/documentation/foundation/nsfilemanager/1413529-moveitematpath
+                // destination が存在するとエラー
+                val result = manager.moveItemAtPath(
+                    srcPath = source,
+                    toPath = destination,
+                    error = null
+                )
+                result
             }
 
         actual suspend fun deleteRecursively(path: String): Boolean =

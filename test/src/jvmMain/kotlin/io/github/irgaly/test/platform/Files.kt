@@ -3,6 +3,8 @@ package io.github.irgaly.test.platform
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.nio.file.DirectoryNotEmptyException
+import java.nio.file.StandardCopyOption
 import kotlin.io.path.createTempDirectory
 
 actual class Files {
@@ -29,6 +31,22 @@ actual class Files {
                     true
                 }
             }
+
+        actual suspend fun move(source: String, destination: String): Boolean =
+            withContext(Dispatchers.IO) {
+                try {
+                    java.nio.file.Files.move(
+                        source,
+                        destination,
+                        // destination がファイルまたは空のディレクトリであれば上書きされる
+                        StandardCopyOption.REPLACE_EXISTING
+                    )
+                    true
+                } catch (_: DirectoryNotEmptyException) {
+                    false
+                }
+            }
+
 
         actual suspend fun deleteRecursively(path: String): Boolean = withContext(Dispatchers.IO) {
             // https://kotlinlang.org/api/latest/jvm/stdlib/kotlin.io/java.io.-file/delete-recursively.html
