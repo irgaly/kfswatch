@@ -15,6 +15,7 @@ dependencyResolutionManagement {
 rootProject.name = "kfswatch-project"
 include(
     ":kfswatch",
+    ":test",
     ":sample"
 )
 includeBuild("build-logic")

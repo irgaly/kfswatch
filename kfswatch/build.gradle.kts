@@ -15,6 +15,11 @@ kotlin {
                 implementation(libs.kotlinx.coroutines.core)
             }
         }
+        commonTest {
+            dependencies {
+                implementation(projects.test)
+            }
+        }
         val androidInstrumentedTest by getting {
             dependsOn(commonTest.get())
             dependencies {
