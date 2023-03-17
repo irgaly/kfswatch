@@ -78,6 +78,7 @@ internal actual class FileWatcher actual constructor(
 
                         ((event and IN_IGNORED) == IN_IGNORED) -> {
                             stop(listOf(targetDirectory))
+                            onStop(targetDirectory)
                         }
                     }
                 }
@@ -108,7 +109,6 @@ internal actual class FileWatcher actual constructor(
                 val observer = observers[targetDirectory]
                 if (observer != null) {
                     observer.stopWatching()
-                    onStop(targetDirectory)
                     observers.remove(targetDirectory)
                 }
             }
@@ -119,7 +119,6 @@ internal actual class FileWatcher actual constructor(
         lock.withLock {
             observers.forEach {
                 it.value.stopWatching()
-                onStop(it.key)
             }
             observers.clear()
         }
