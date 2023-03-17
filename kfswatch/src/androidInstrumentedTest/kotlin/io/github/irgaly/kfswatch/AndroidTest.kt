@@ -1,5 +1,6 @@
 package io.github.irgaly.kfswatch
 
+import io.kotest.core.test.TestResult
 import io.kotest.engine.TestEngineLauncher
 import io.kotest.engine.listener.CollectingTestEngineListener
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -17,7 +18,15 @@ class AndroidTest {
                 val descriptor = testCase.descriptor.chain().joinToString(" > ") {
                     it.id.value
                 }
-                assertFalse(entry.value.isErrorOrFailure) { "$descriptor : ${entry.value}" }
+                val cause = when (val value = entry.value) {
+                    is TestResult.Error -> value.cause
+                    is TestResult.Failure -> value.cause
+                    else -> null
+                }
+                assertFalse(entry.value.isErrorOrFailure) {
+                    """$descriptor
+                        |${cause?.stackTraceToString()}""".trimMargin()
+                }
             }
         }.let {
             assertAll(it)
