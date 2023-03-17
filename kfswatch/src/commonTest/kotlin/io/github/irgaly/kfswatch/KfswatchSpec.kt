@@ -123,5 +123,18 @@ class KfswatchSpec : DescribeFunSpec({
             errors.cancel()
             watcher.close()
         }
+        it("子ディレクトリ内の変化は検出しない") {
+            val directory = "$tempDirectory/directory_child".also { mkdirs(it) }
+            val child = "$directory/child"
+            val watcher = createWatcher()
+            val errors = watcher.onErrorFlow.testIn(this)
+            watcher.onEventFlow.test {
+                watcher.add(directory)
+                mkdirs("$child/child2")
+            }
+            errors.ensureAllEventsConsumed()
+            errors.cancel()
+            watcher.close()
+        }
     }
 })
