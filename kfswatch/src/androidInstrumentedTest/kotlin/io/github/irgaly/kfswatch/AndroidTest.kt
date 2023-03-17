@@ -31,5 +31,6 @@ class AndroidTest {
         }.let {
             assertAll(it)
         }
+        println("Total ${listener.tests.size}, Failure ${listener.tests.count { it.value.isErrorOrFailure }}")
     }
 }
