@@ -1,5 +1,6 @@
 package io.github.irgaly.kfswatch
 
+import app.cash.turbine.ReceiveTurbine
 import app.cash.turbine.test
 import app.cash.turbine.testIn
 import io.github.irgaly.test.DescribeFunSpec
@@ -30,6 +31,17 @@ class KfswatchSpec : DescribeFunSpec({
     suspend fun mkdirs(path: String) {
         io.github.irgaly.kfswatch.internal.platform.Files.mkdirs(path)
     }
+
+    suspend fun ReceiveTurbine<KfsDirectoryWatcherEvent>.awaitEvent(
+        event: KfsEvent,
+        path: String
+    ) {
+        awaitItem() should {
+            it.event shouldBe event
+            it.path shouldBe path
+        }
+    }
+
     describe("基本機能") {
         it("directory, file の Create, Delete, Rename を検出できる") {
             val directory = "$tempDirectory/test1".also { mkdirs(it) }
@@ -38,33 +50,15 @@ class KfswatchSpec : DescribeFunSpec({
             watcher.onEventFlow.test {
                 watcher.add(directory)
                 mkdirs("$directory/child1")
-                awaitItem() should {
-                    it.event shouldBe KfsEvent.Create
-                    it.path shouldBe "child1"
-                }
+                awaitEvent(KfsEvent.Create, "child1")
                 Files.writeFile("$directory/child2", "test")
-                awaitItem() should {
-                    it.event shouldBe KfsEvent.Create
-                    it.path shouldBe "child2"
-                }
-                awaitItem() should {
-                    it.event shouldBe KfsEvent.Modify
-                    it.path shouldBe "child2"
-                }
+                awaitEvent(KfsEvent.Create, "child2")
+                awaitEvent(KfsEvent.Modify, "child2")
                 Files.writeFile("$directory/child3", "")
-                awaitItem() should {
-                    it.event shouldBe KfsEvent.Create
-                    it.path shouldBe "child3"
-                }
+                awaitEvent(KfsEvent.Create, "child3")
                 Files.move("$directory/child2", "$directory/child3")
-                awaitItem() should {
-                    it.event shouldBe KfsEvent.Delete
-                    it.path shouldBe "child2"
-                }
-                awaitItem() should {
-                    it.event shouldBe KfsEvent.Create
-                    it.path shouldBe "child3"
-                }
+                awaitEvent(KfsEvent.Delete, "child2")
+                awaitEvent(KfsEvent.Create, "child3")
             }
             errors.ensureAllEventsConsumed()
             errors.cancel()
