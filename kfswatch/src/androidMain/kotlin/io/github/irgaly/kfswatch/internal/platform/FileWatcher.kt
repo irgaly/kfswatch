@@ -53,6 +53,8 @@ internal actual class FileWatcher actual constructor(
                     logger?.debug {
                         "FileObserver.onEvent: event = ${event.toString(16)}, path = $path"
                     }
+                    @Suppress("LocalVariableName")
+                    val IN_IGNORED = 0x00008000 // inotify 監視終了イベント
                     when {
                         ((event and CREATE) == CREATE) -> {
                             onEvent(targetDirectory, checkNotNull(path), FileWatcherEvent.Create)
@@ -72,6 +74,10 @@ internal actual class FileWatcher actual constructor(
 
                         ((event and MODIFY) == MODIFY) -> {
                             onEvent(targetDirectory, checkNotNull(path), FileWatcherEvent.Modify)
+                        }
+
+                        ((event and IN_IGNORED) == IN_IGNORED) -> {
+                            stop(listOf(targetDirectory))
                         }
                     }
                 }
