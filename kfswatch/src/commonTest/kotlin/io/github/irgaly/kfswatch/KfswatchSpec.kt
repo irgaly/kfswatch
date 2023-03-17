@@ -31,7 +31,7 @@ class KfswatchSpec : DescribeFunSpec({
         io.github.irgaly.kfswatch.internal.platform.Files.mkdirs(path)
     }
     describe("基本機能") {
-        it("directory, file 作成を検出できる") {
+        it("directory, file の Create, Delete, Rename を検出できる") {
             val directory = "$tempDirectory/test1".also { mkdirs(it) }
             val watcher = createWatcher()
             val errors = watcher.onErrorFlow.testIn(this)
@@ -50,6 +50,20 @@ class KfswatchSpec : DescribeFunSpec({
                 awaitItem() should {
                     it.event shouldBe KfsEvent.Modify
                     it.path shouldBe "child2"
+                }
+                Files.writeFile("$directory/child3", "")
+                awaitItem() should {
+                    it.event shouldBe KfsEvent.Create
+                    it.path shouldBe "child3"
+                }
+                Files.move("$directory/child2", "$directory/child3")
+                awaitItem() should {
+                    it.event shouldBe KfsEvent.Delete
+                    it.path shouldBe "child2"
+                }
+                awaitItem() should {
+                    it.event shouldBe KfsEvent.Create
+                    it.path shouldBe "child3"
                 }
             }
             errors.ensureAllEventsConsumed()
