@@ -282,18 +282,26 @@ class KfswatchSpec : DescribeFunSpec({
     describe("上書き移動") {
         it("ファイルの上書き移動") {
             val directory = "$tempDirectory/overwrite_file".also { mkdirs(it) }
-            val file = "$directory/file".also { Files.writeFile(it, "file") }
+            val file1 = "$directory/file1".also { Files.writeFile(it, "file1") }
             val file2 = "$directory/file2".also { Files.writeFile(it, "file2") }
             val watcher = createWatcher()
             val errors = watcher.onErrorFlow.testIn(this)
             watcher.onEventFlow.test(timeout = 5.seconds) {
                 watcher.addWait(directory)
-                val result = Files.move(file, file2)
+                val result = Files.move(file1, file2)
                 result shouldBe true
-                awaitEvents(
-                    Event(KfsEvent.Delete, "file"),
-                    Event(KfsEvent.Create, "file2")
-                )
+                if (Platform.isJvmMacos) {
+                    // JVM on macOS では上書き対象は Modify で通知される
+                    awaitEvents(
+                        Event(KfsEvent.Delete, "file1"),
+                        Event(KfsEvent.Modify, "file2")
+                    )
+                } else {
+                    awaitEvents(
+                        Event(KfsEvent.Delete, "file1"),
+                        Event(KfsEvent.Create, "file2")
+                    )
+                }
             }
             errors.ensureAllEventsConsumed()
             errors.cancel()
