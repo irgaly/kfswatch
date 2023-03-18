@@ -165,6 +165,7 @@ fun Project.configureMultiplatformLibrary() {
                 dependsOn(darwinMain)
             }
             val iosTest by getting {
+                dependsOn(iosMain)
                 dependsOn(darwinTest)
             }
             val watchosMain by getting {
