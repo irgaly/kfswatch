@@ -167,7 +167,7 @@ class KfswatchSpec : DescribeFunSpec({
             val stops = watcher.onStopFlow.testIn(this)
             watcher.onEventFlow.test(timeout = 5.seconds) {
                 watcher.addWait(directory)
-                watcher.addWait(directory)
+                watcher.add(directory)
                 starts.awaitItem() shouldBe directory
                 mkdirs("$directory/child")
                 awaitEvent(KfsEvent.Create, "child")
