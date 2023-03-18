@@ -10,6 +10,7 @@ import io.kotest.assertions.fail
 import io.kotest.core.test.TestScope
 import io.kotest.matchers.should
 import io.kotest.matchers.shouldBe
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlin.time.ExperimentalTime
 
 @OptIn(ExperimentalTime::class)
@@ -71,10 +72,11 @@ class KfswatchSpec : DescribeFunSpec({
 
     describe("基本機能") {
         it("directory, file の Create, Delete, Modify を検出できる") {
-            val directory = "$tempDirectory/simple".also { mkdirs(it) }
+            val directory = "$tempDirectory/basic".also { mkdirs(it) }
             val watcher = createWatcher()
             val errors = watcher.onErrorFlow.testIn(this)
-            watcher.onEventFlow.test {
+            watcher.onEventFlow.distinctUntilChanged().test {
+                // ファイル内容書き換えでは同じ内容の Modify が複数流れることがあるので distinct する
                 watcher.add(directory)
                 mkdirs("$directory/child1")
                 awaitEvent(KfsEvent.Create, "child1")
@@ -83,10 +85,10 @@ class KfswatchSpec : DescribeFunSpec({
                     Event(KfsEvent.Create, "child2"),
                     Event(KfsEvent.Modify, "child2")
                 )
-                Files.writeFile("$directory/child2", "test2")
-                awaitEvent(KfsEvent.Modify, "child2")
                 Files.writeFile("$directory/child3", "")
                 awaitEvent(KfsEvent.Create, "child3")
+                Files.writeFile("$directory/child2", "test2")
+                awaitEvent(KfsEvent.Modify, "child2")
                 Files.deleteRecursively("$directory/child1")
                 awaitEvent(KfsEvent.Delete, "child1")
                 Files.deleteRecursively("$directory/child2")
@@ -313,6 +315,7 @@ class KfswatchSpec : DescribeFunSpec({
                 watcher.add(directory)
                 Files.deleteRecursively(directory)
                 stops.awaitItem() shouldBe directory
+                watcher.watchingDirectories.isEmpty() shouldBe true
             }
             stops.ensureAllEventsConsumed()
             stops.cancel()
