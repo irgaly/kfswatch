@@ -161,6 +161,43 @@ class KfswatchSpec : DescribeFunSpec({
             errors.cancel()
             watcher.close()
         }
+        it("監視対象は 64 個まで可能") {
+            val directory = "$tempDirectory/many_64".also { mkdirs(it) }
+            (1..65).forEach {
+                mkdirs("$directory/directory$it")
+            }
+            val watcher = createWatcher()
+            val errors = watcher.onErrorFlow.testIn(this)
+            val starts = watcher.onStartFlow.testIn(this)
+            val stops = watcher.onStopFlow.testIn(this)
+            watcher.onEventFlow.test {
+                (1..64).forEach {
+                    val target = "$directory/directory$it"
+                    watcher.add(target)
+                    starts.awaitItem() shouldBe target
+                    Files.writeFile("$target/file", "")
+                    awaitEvent(KfsEvent.Create, "file", target)
+                    watcher.watchingDirectories.size shouldBe it
+                }
+                val target = "$directory/directory65"
+                watcher.add(target)
+                errors.awaitItem().targetDirectory shouldBe target
+                watcher.watchingDirectories.size shouldBe 64
+                (1..64).forEach {
+                    val target = "$directory/directory$it"
+                    watcher.remove(target)
+                    stops.awaitItem() shouldBe target
+                    watcher.watchingDirectories.size shouldBe (64 - it)
+                }
+            }
+            stops.ensureAllEventsConsumed()
+            stops.cancel()
+            starts.ensureAllEventsConsumed()
+            starts.cancel()
+            errors.ensureAllEventsConsumed()
+            errors.cancel()
+            watcher.close()
+        }
     }
     describe("move 操作") {
         it("同一ディレクトリ内 move") {
