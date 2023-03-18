@@ -113,7 +113,13 @@ internal actual class FileWatcher actual constructor(
                                     }
                                 }
                             }
-                            key.reset()
+                            val valid = key.reset()
+                            if (!valid) {
+                                logger?.debug {
+                                    "WatchService: key is invalid, stop watching: ${(key.watchable() as Path).pathString}"
+                                }
+                                stop(listOf((key.watchable() as Path).pathString))
+                            }
                         }
                     } catch (_: ClosedWatchServiceException) {
                         // WatchService.take(): WatchService.close() でキャンセルされた

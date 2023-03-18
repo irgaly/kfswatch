@@ -9,6 +9,7 @@ import io.github.irgaly.test.extension.tempdir
 import io.github.irgaly.test.platform.Files
 import io.kotest.assertions.fail
 import io.kotest.core.test.TestScope
+import io.kotest.matchers.collections.beEmpty
 import io.kotest.matchers.should
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -316,10 +317,18 @@ class KfswatchSpec : DescribeFunSpec({
             watcher.onEventFlow.test(timeout = 5.seconds) {
                 watcher.addWait(directory)
                 Files.move(directory1, directory2)
-                awaitEvents(
-                    Event(KfsEvent.Delete, "directory1"),
-                    Event(KfsEvent.Create, "directory2")
-                )
+                if (Platform.isJvmMacos) {
+                    // JVM on macOS では上書き対象は Modify で通知される
+                    awaitEvents(
+                        Event(KfsEvent.Delete, "directory1"),
+                        Event(KfsEvent.Modify, "directory2")
+                    )
+                } else {
+                    awaitEvents(
+                        Event(KfsEvent.Delete, "directory1"),
+                        Event(KfsEvent.Create, "directory2")
+                    )
+                }
             }
             errors.ensureAllEventsConsumed()
             errors.cancel()
@@ -352,7 +361,7 @@ class KfswatchSpec : DescribeFunSpec({
                 watcher.addWait(directory)
                 Files.deleteRecursively(directory)
                 stops.awaitItem() shouldBe directory
-                watcher.watchingDirectories.isEmpty() shouldBe true
+                watcher.watchingDirectories should beEmpty()
             }
             stops.ensureAllEventsConsumed()
             stops.cancel()
@@ -369,8 +378,11 @@ class KfswatchSpec : DescribeFunSpec({
             watcher.onEventFlow.test(timeout = 5.seconds) {
                 watcher.addWait(target)
                 Files.move(parent, "$directory/parent2")
-                Files.writeFile("$directory/parent2/target/child", "")
-                awaitEvent(KfsEvent.Create, "child")
+                if (!Platform.isJvmMacos) {
+                    // JVM on macOS は監視対象の移動で監視解除される
+                    Files.writeFile("$directory/parent2/target/child", "")
+                    awaitEvent(KfsEvent.Create, "child")
+                }
             }
             errors.ensureAllEventsConsumed()
             errors.cancel()
