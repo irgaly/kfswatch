@@ -2,6 +2,7 @@ package io.github.irgaly.test.platform
 
 import kotlinx.cinterop.BooleanVar
 import kotlinx.cinterop.ObjCObjectVar
+import kotlinx.cinterop.UnsafeNumber
 import kotlinx.cinterop.alloc
 import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.pointed
@@ -21,6 +22,7 @@ import platform.Foundation.writeToFile
 import platform.posix.rmdir
 
 actual class Files {
+    @OptIn(UnsafeNumber::class)
     actual companion object {
         actual suspend fun createTemporaryDirectory(): String = withContext(Dispatchers.Default) {
             memScoped {
@@ -62,6 +64,7 @@ actual class Files {
 
         actual suspend fun writeFile(path: String, text: String): Boolean =
             withContext(Dispatchers.Default) {
+                @Suppress("CAST_NEVER_SUCCEEDS")
                 (path as NSString).writeToFile(
                     path = path,
                     atomically = false,
@@ -116,9 +119,9 @@ actual class Files {
                     val error = errorPtr.pointed.value
                     if (error != null) {
                         throw Exception(error.toString())
+                    }
+                    removed
                 }
-                removed
             }
-        }
     }
 }
