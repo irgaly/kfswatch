@@ -353,6 +353,32 @@ class KfswatchSpec : DescribeFunSpec({
             watcher.close()
         }
     }
+    describe("監視失敗") {
+        it("監視対象が存在しない") {
+            val target = "$tempDirectory/no_target"
+            val watcher = createWatcher()
+            val errors = watcher.onErrorFlow.testIn(this)
+            watcher.onEventFlow.test {
+                watcher.add(target)
+                errors.awaitItem().targetDirectory shouldBe target
+            }
+            errors.ensureAllEventsConsumed()
+            errors.cancel()
+            watcher.close()
+        }
+        it("監視対象がディレクトリではない") {
+            val target = "$tempDirectory/file".also { Files.writeFile(it, "") }
+            val watcher = createWatcher()
+            val errors = watcher.onErrorFlow.testIn(this)
+            watcher.onEventFlow.test {
+                watcher.add(target)
+                errors.awaitItem().targetDirectory shouldBe target
+            }
+            errors.ensureAllEventsConsumed()
+            errors.cancel()
+            watcher.close()
+        }
+    }
 })
 
 private data class Event(
