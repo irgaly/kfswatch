@@ -12,7 +12,9 @@ import io.kotest.core.test.TestScope
 import io.kotest.matchers.collections.beEmpty
 import io.kotest.matchers.should
 import io.kotest.matchers.shouldBe
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.ExperimentalTime
 
@@ -98,9 +100,10 @@ class KfswatchSpec : DescribeFunSpec({
                 mkdirs("$directory/child1")
                 awaitEvent(KfsEvent.Create, "child1")
                 Files.writeFile("$directory/child2", "test")
-                if (Platform.isJvmMacos) {
+                if (Platform.isJvmMacos || Platform.isNodejs) {
                     // JVM on macOS はポーリング監視実装のため
                     // 新規作成では Modify イベントは発生しない
+                    // Nodejs も Modify は発生しない
                     awaitEvents(
                         Event(KfsEvent.Create, "child2")
                     )
@@ -202,6 +205,10 @@ class KfswatchSpec : DescribeFunSpec({
                     val target = "$directory/directory$it"
                     watcher.addWait(target)
                     starts.awaitItem() shouldBe target
+                    if (Platform.isNodejs) {
+                        // Nodejs で監視開始直後のイベントを受け取れないことがあるため delay
+                        delay(10.milliseconds)
+                    }
                     Files.writeFile("$target/file", "")
                     watcher.watchingDirectories.size shouldBe it
                 }
@@ -291,8 +298,9 @@ class KfswatchSpec : DescribeFunSpec({
                 watcher.addWait(directory)
                 val result = Files.move(file1, file2)
                 result shouldBe true
-                if (Platform.isJvmMacos) {
+                if (Platform.isJvmMacos || Platform.isNodejs) {
                     // JVM on macOS では上書き対象は Modify で通知される
+                    // Nodejs も上書きは rename - Modify で通知される
                     awaitEvents(
                         Event(KfsEvent.Delete, "file1"),
                         Event(KfsEvent.Modify, "file2")
@@ -317,31 +325,46 @@ class KfswatchSpec : DescribeFunSpec({
             watcher.onEventFlow.test(timeout = 5.seconds) {
                 watcher.addWait(directory)
                 Files.move(directory1, directory2)
-                if (Platform.isJvmMacos) {
-                    // JVM on macOS では
-                    // directory が置き換えられたときに以下のどちらかとなる
-                    // * Modify イベントが発生する
-                    // * イベントが検出されない
-                    // directory2 Modify イベントが発生しない可能性に対応する
-                    var received: KfsDirectoryWatcherEvent? = null
-                    repeat(2) {
-                        if (received == null) {
-                            val item = awaitItem()
-                            if (item.event == KfsEvent.Delete) {
-                                received = item
+                when {
+                    Platform.isJvmMacos -> {
+                        // JVM on macOS では
+                        // directory が置き換えられたときに以下のどちらかとなる
+                        // * Modify イベントが発生する
+                        // * イベントが検出されない
+                        // directory2 Modify イベントが発生しない可能性に対応する
+                        var received: KfsDirectoryWatcherEvent? = null
+                        repeat(2) {
+                            if (received == null) {
+                                val item = awaitItem()
+                                if (item.event == KfsEvent.Delete) {
+                                    received = item
+                                }
                             }
                         }
+                        received.should {
+                            it?.event shouldBe KfsEvent.Delete
+                            it?.path shouldBe "directory1"
+                        }
+                        cancelAndIgnoreRemainingEvents()
                     }
-                    received.should {
-                        it?.event shouldBe KfsEvent.Delete
-                        it?.path shouldBe "directory1"
+
+                    Platform.isNodejs -> {
+                        // Nodejs では directory2 を削除してから
+                        // rename する
+                        // 上書きは Modify として検出される
+                        awaitEvents(
+                            Event(KfsEvent.Modify, "directory2"),
+                            Event(KfsEvent.Delete, "directory1"),
+                            Event(KfsEvent.Modify, "directory2")
+                        )
                     }
-                    cancelAndIgnoreRemainingEvents()
-                } else {
-                    awaitEvents(
-                        Event(KfsEvent.Delete, "directory1"),
-                        Event(KfsEvent.Create, "directory2")
-                    )
+
+                    else -> {
+                        awaitEvents(
+                            Event(KfsEvent.Delete, "directory1"),
+                            Event(KfsEvent.Create, "directory2")
+                        )
+                    }
                 }
             }
             errors.ensureAllEventsConsumed()
@@ -393,8 +416,8 @@ class KfswatchSpec : DescribeFunSpec({
             watcher.onEventFlow.test(timeout = 5.seconds) {
                 watcher.addWait(target)
                 Files.move(parent, "$directory/parent2")
-                if (!Platform.isJvmMacos) {
-                    // JVM on macOS は監視対象の移動で監視解除される
+                if (!Platform.isJvmMacos && !Platform.isNodejsMacos) {
+                    // JVM on macOS, Nodejs on macOS は監視対象の親ディレクトリの移動で監視解除される
                     Files.writeFile("$directory/parent2/target/child", "")
                     awaitEvent(KfsEvent.Create, "child")
                 }

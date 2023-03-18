@@ -9,3 +9,8 @@ internal fun isBrowser(): Boolean {
 internal fun isNodejs(): Boolean {
     return (js("typeof window") == "undefined")
 }
+
+@Suppress("unused")
+internal fun isMacos(): Boolean {
+    return (js("require('os').platform()") == "darwin")
+}

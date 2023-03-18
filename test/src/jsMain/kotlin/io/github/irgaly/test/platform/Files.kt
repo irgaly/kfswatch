@@ -52,21 +52,32 @@ actual class Files {
                 if (isBrowser()) {
                     continuation.resume(true)
                 } else {
+                    // change イベントのためになるべく上書きで更新する
+                    // * macOS ではこの処理でも rename イベントになってしまう
                     @Suppress("UnsafeCastFromDynamic")
-                    fs.writeFile(path, text).then {
+                    fs.open(path, "r+").then { handle ->
+                        handle.write(text, 1).then { result ->
+                            handle.truncate(result.bytesWritten)
+                        }.then {
+                            handle.close()
+                        }
+                    }.then {
                         continuation.resume(true)
                     }.catch {
-                        continuation.resume(false)
+                        fs.writeFile(path, text).then {
+                            continuation.resume(true)
+                        }.catch {
+                            continuation.resume(false)
+                        }
                     }
                 }
             }
 
         actual suspend fun move(source: String, destination: String): Boolean =
             suspendCoroutine { continuation ->
+                // destination が空の directory なら先に削除する
                 @Suppress("UnsafeCastFromDynamic")
-                fs.rmdir(destination).catch {
-                    // destination が空ディレクトリであれば削除される
-                }.then {
+                fs.rmdir(destination).finally {
                     fs.rename(source, destination).then {
                         continuation.resume(true)
                     }.catch {
