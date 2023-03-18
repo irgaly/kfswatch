@@ -44,8 +44,13 @@ class KfswatchSpec : DescribeFunSpec({
     suspend fun KfsDirectoryWatcher.addWait(vararg targets: String) {
         onStartFlow.test {
             add(*targets)
-            targets.forEach {
-                awaitItem() shouldBe it
+            val set = targets.toMutableSet()
+            repeat(set.size) {
+                val item = awaitItem()
+                val removed = set.remove(item)
+                if (!removed) {
+                    fail("$item is not expected in: ${set.joinToString(",")}")
+                }
             }
         }
     }
@@ -66,7 +71,7 @@ class KfswatchSpec : DescribeFunSpec({
 
     suspend fun ReceiveTurbine<KfsDirectoryWatcherEvent>.awaitEvents(vararg events: Event) {
         val list = events.toMutableList()
-        (0..list.lastIndex).forEach {
+        repeat(list.size) {
             val item = awaitItem()
             val index = list.indexOfFirst { event ->
                 (event.event == item.event) &&
@@ -151,8 +156,8 @@ class KfswatchSpec : DescribeFunSpec({
             watcher.onEventFlow.test(timeout = 5.seconds) {
                 watcher.addWait(directory1, directory2)
                 mkdirs("$directory1/child1")
-                mkdirs("$directory2/child2")
                 awaitEvent(KfsEvent.Create, "child1", directory1)
+                mkdirs("$directory2/child2")
                 awaitEvent(KfsEvent.Create, "child2", directory2)
             }
             errors.ensureAllEventsConsumed()
