@@ -47,7 +47,7 @@ jobs:
           ./gradlew :kfswatch:linkDebugTestMacosX64
       - name: JVM Test
         run: |
-          ./gradlew :kfswatch:jvmTestClasses
+          ./gradlew :kfswatch:jvmTest
       - name: Nodejs Test
         run: |
           ./gradlew :kfswatch:jsNodeTest
