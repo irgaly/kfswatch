@@ -205,17 +205,24 @@ fun Project.configureMultiplatformLibrary() {
             val tvosSimulatorArm64Test by getting {
                 dependsOn(iosTest)
             }
-            val macosX64Main by getting {
+            val macosMain by creating {
                 dependsOn(darwinMain)
+            }
+            val macosTest by creating {
+                dependsOn(macosMain)
+                dependsOn(darwinTest)
+            }
+            val macosX64Main by getting {
+                dependsOn(macosMain)
             }
             val macosX64Test by getting {
-                dependsOn(darwinTest)
+                dependsOn(macosTest)
             }
             val macosArm64Main by getting {
-                dependsOn(darwinMain)
+                dependsOn(macosMain)
             }
             val macosArm64Test by getting {
-                dependsOn(darwinTest)
+                dependsOn(macosTest)
             }
             val mingwX64Main by getting {
                 dependsOn(nativeMain)
