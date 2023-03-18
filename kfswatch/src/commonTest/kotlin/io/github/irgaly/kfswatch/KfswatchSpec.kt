@@ -96,7 +96,33 @@ class KfswatchSpec : DescribeFunSpec({
             errors.cancel()
             watcher.close()
         }
-        it("2つ以上の directory を監視できる") {
+        it("add, remove") {
+            val directory = "$tempDirectory/add_remove".also { mkdirs(it) }
+            val watcher = createWatcher()
+            val errors = watcher.onErrorFlow.testIn(this)
+            val starts = watcher.onStartFlow.testIn(this)
+            val stops = watcher.onStopFlow.testIn(this)
+            watcher.onEventFlow.test {
+                watcher.add(directory)
+                starts.awaitItem() shouldBe directory
+                mkdirs("$directory/child")
+                awaitEvent(KfsEvent.Create, "child")
+                watcher.remove(directory)
+                stops.awaitItem() shouldBe directory
+                mkdirs("$directory/child2")
+                // no events
+            }
+            stops.ensureAllEventsConsumed()
+            stops.cancel()
+            starts.ensureAllEventsConsumed()
+            starts.cancel()
+            errors.ensureAllEventsConsumed()
+            errors.cancel()
+            watcher.close()
+        }
+    }
+    describe("複数監視") {
+        it("2つの directory を監視できる") {
             val directory1 = "$tempDirectory/many2/target1".also { mkdirs(it) }
             val directory2 = "$tempDirectory/many2/target2".also { mkdirs(it) }
             val watcher = createWatcher()
@@ -108,6 +134,29 @@ class KfswatchSpec : DescribeFunSpec({
                 awaitEvent(KfsEvent.Create, "child1", directory1)
                 awaitEvent(KfsEvent.Create, "child2", directory2)
             }
+            errors.ensureAllEventsConsumed()
+            errors.cancel()
+            watcher.close()
+        }
+        it("同じ directory を複数 add しても監視はひとつ") {
+            val directory = "$tempDirectory/many_same/target1".also { mkdirs(it) }
+            val watcher = createWatcher()
+            val errors = watcher.onErrorFlow.testIn(this)
+            val starts = watcher.onStartFlow.testIn(this)
+            val stops = watcher.onStopFlow.testIn(this)
+            watcher.onEventFlow.test {
+                watcher.add(directory)
+                watcher.add(directory)
+                starts.awaitItem() shouldBe directory
+                mkdirs("$directory/child")
+                awaitEvent(KfsEvent.Create, "child")
+                watcher.remove(directory)
+                stops.awaitItem() shouldBe directory
+            }
+            stops.ensureAllEventsConsumed()
+            stops.cancel()
+            starts.ensureAllEventsConsumed()
+            starts.cancel()
             errors.ensureAllEventsConsumed()
             errors.cancel()
             watcher.close()
