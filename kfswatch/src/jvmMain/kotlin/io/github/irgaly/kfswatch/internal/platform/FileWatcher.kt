@@ -78,6 +78,12 @@ internal actual class FileWatcher actual constructor(
                     logger?.debug { "FileWatcher thread start" }
                     try {
                         while (true) {
+                            val finishing = lock.withLock {
+                                keys.isEmpty()
+                            }
+                            if (finishing) {
+                                break
+                            }
                             // イベント発生までスレッド停止
                             val key = watchService.take()
                             val targetDirectory = (key.watchable() as Path).pathString
@@ -100,15 +106,14 @@ internal actual class FileWatcher actual constructor(
                                     }
 
                                     StandardWatchEventKinds.OVERFLOW -> {
-                                        onError(targetDirectory, "Events overflowed: $targetDirectory")
+                                        onError(
+                                            targetDirectory,
+                                            "Events overflowed: $targetDirectory"
+                                        )
                                     }
                                 }
                             }
-                            val valid = key.reset()
-                            if (!valid) {
-                                // 監視終了
-                                break
-                            }
+                            key.reset()
                         }
                     } catch (_: ClosedWatchServiceException) {
                         // WatchService.take(): WatchService.close() でキャンセルされた
