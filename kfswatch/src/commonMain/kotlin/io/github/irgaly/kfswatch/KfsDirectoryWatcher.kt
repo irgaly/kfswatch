@@ -215,15 +215,11 @@ class KfsDirectoryWatcher(
         private val logger: KfsLogger
     ): Logger {
         override fun debug(message: () -> String) {
-            scope.launch(dispatcher) {
-                logger.debug(message())
-            }
+            logger.debug(message())
         }
 
         override fun error(message: () -> String) {
-            scope.launch(dispatcher) {
-                logger.error(message())
-            }
+            logger.error(message())
         }
     }
 }

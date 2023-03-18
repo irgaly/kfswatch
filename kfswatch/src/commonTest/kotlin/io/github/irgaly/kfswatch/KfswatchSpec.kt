@@ -19,11 +19,11 @@ import kotlin.time.ExperimentalTime
 class KfswatchSpec : DescribeFunSpec({
     val tempDirectory = tempdir(true)
     val logger = object : KfsLogger {
-        override suspend fun debug(message: String) {
+        override fun debug(message: String) {
             println("debug: $message")
         }
 
-        override suspend fun error(message: String) {
+        override fun error(message: String) {
             println("error: $message")
         }
     }
