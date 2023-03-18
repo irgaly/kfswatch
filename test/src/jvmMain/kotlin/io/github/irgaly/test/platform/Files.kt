@@ -4,6 +4,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.nio.file.DirectoryNotEmptyException
+import java.nio.file.Paths
 import java.nio.file.StandardCopyOption
 import kotlin.io.path.createTempDirectory
 
@@ -36,8 +37,8 @@ actual class Files {
             withContext(Dispatchers.IO) {
                 try {
                     java.nio.file.Files.move(
-                        source,
-                        destination,
+                        Paths.get(source),
+                        Paths.get(destination),
                         // destination がファイルまたは空のディレクトリであれば上書きされる
                         StandardCopyOption.REPLACE_EXISTING
                     )
