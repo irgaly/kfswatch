@@ -25,7 +25,11 @@ actual class Files {
     @OptIn(UnsafeNumber::class)
     actual companion object {
         actual suspend fun createTemporaryDirectory(): String = withContext(Dispatchers.Default) {
-            memScoped {
+            createTemporaryDirectorySync()
+        }
+
+        actual fun createTemporaryDirectorySync(): String {
+            return memScoped {
                 // https://developer.apple.com/documentation/foundation/1409211-nstemporarydirectory
                 // iOS: NSTemporaryDirectory() = (Application Sandbox)/tmp
                 // macOS: NSTemporaryDirectory() = /var/folders/...

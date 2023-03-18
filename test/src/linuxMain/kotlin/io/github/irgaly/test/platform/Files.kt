@@ -25,12 +25,16 @@ import platform.posix.write
 actual class Files {
     actual companion object {
         actual suspend fun createTemporaryDirectory(): String = withContext(Dispatchers.Default) {
+            createTemporaryDirectorySync()
+        }
+
+        actual fun createTemporaryDirectorySync(): String {
             val tempDirectory =
                 sequenceOf("TMPDIR", "TMP", "TEMP", "TEMPDIR").firstNotNullOfOrNull {
                     getenv(it)?.toKString()
                 } ?: "/tmp"
             val directory = mkdtemp("$tempDirectory/tmpdir.XXXXXX".cstr)?.toKString()
-            checkNotNull(directory)
+            return checkNotNull(directory)
         }
 
         actual suspend fun createDirectory(path: String): Boolean =

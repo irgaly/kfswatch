@@ -8,9 +8,13 @@ import kotlin.io.path.createTempDirectory
 actual class Files {
     actual companion object {
         actual suspend fun createTemporaryDirectory(): String = withContext(Dispatchers.IO) {
+            createTemporaryDirectorySync()
+        }
+
+        actual fun createTemporaryDirectorySync(): String {
             // https://kotlinlang.org/api/latest/jvm/stdlib/kotlin.io.path/create-temp-directory.html
             // https://docs.oracle.com/javase/jp/8/docs/api/java/nio/file/Files.html#createTempDirectory-java.lang.String-java.nio.file.attribute.FileAttribute...-
-            createTempDirectory().toString()
+            return createTempDirectory().toString()
         }
 
         actual suspend fun createDirectory(path: String): Boolean = withContext(Dispatchers.IO) {

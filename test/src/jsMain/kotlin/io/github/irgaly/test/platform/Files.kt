@@ -5,6 +5,7 @@ import kotlin.coroutines.resumeWithException
 import kotlin.coroutines.suspendCoroutine
 
 private val fs: dynamic get() = js("require('fs').promises")
+private val fsSync: dynamic get() = js("require('fs')")
 private val path: dynamic get() = js("require('path')")
 private val os: dynamic get() = js("require('os')")
 
@@ -20,6 +21,15 @@ actual class Files {
                 }.catch { error ->
                     continuation.resumeWithException(IllegalStateException(error.message.unsafeCast<String>()))
                 }
+            }
+        }
+
+        actual fun createTemporaryDirectorySync(): String {
+            return if (isBrowser()) {
+                "js-browser-dummy-temporary-directory"
+            } else {
+                @Suppress("UnsafeCastFromDynamic")
+                fsSync.mkdtempSync(path.join(os.tmpdir(), "")).unsafeCast<String>()
             }
         }
 

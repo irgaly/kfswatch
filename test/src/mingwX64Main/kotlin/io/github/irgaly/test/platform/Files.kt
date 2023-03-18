@@ -45,7 +45,11 @@ import platform.windows.WriteFile
 actual class Files {
     actual companion object {
         actual suspend fun createTemporaryDirectory(): String = withContext(Dispatchers.Default) {
-            memScoped {
+            createTemporaryDirectorySync()
+        }
+
+        actual fun createTemporaryDirectorySync(): String {
+            return memScoped {
                 val tempPathBuffer = allocArray<TCHARVar>(MAX_PATH)
                 val uuid = alloc<UUID>()
                 val rpcString = alloc<RPC_WSTRVar>()
