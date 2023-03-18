@@ -162,6 +162,45 @@ class KfswatchSpec : DescribeFunSpec({
             watcher.close()
         }
     }
+    describe("上書き移動") {
+        it("ファイルの上書き移動") {
+            val directory = "$tempDirectory/overwrite_file".also { mkdirs(it) }
+            val file = "$directory/file".also { Files.writeFile(it, "file") }
+            val file2 = "$directory/file2".also { Files.writeFile(it, "file2") }
+            val watcher = createWatcher()
+            val errors = watcher.onErrorFlow.testIn(this)
+            watcher.onEventFlow.test {
+                watcher.add(directory)
+                val result = Files.move(file, file2)
+                result shouldBe true
+                awaitEvents(
+                    Event(KfsEvent.Delete, "file"),
+                    Event(KfsEvent.Create, "file2")
+                )
+            }
+            errors.ensureAllEventsConsumed()
+            errors.cancel()
+            watcher.close()
+        }
+        it("directory の上書き移動") {
+            val directory = "$tempDirectory/overwrite_directory".also { mkdirs(it) }
+            val directory1 = "$directory/directory1".also { mkdirs(it) }
+            val directory2 = "$directory/directory2".also { mkdirs(it) }
+            val watcher = createWatcher()
+            val errors = watcher.onErrorFlow.testIn(this)
+            watcher.onEventFlow.test {
+                watcher.add(directory)
+                Files.move(directory1, directory2)
+                awaitEvents(
+                    Event(KfsEvent.Delete, "directory1"),
+                    Event(KfsEvent.Create, "directory2")
+                )
+            }
+            errors.ensureAllEventsConsumed()
+            errors.cancel()
+            watcher.close()
+        }
+    }
     describe("検出しないもの") {
         it("監視対象の directory の移動は検出されない") {
             val directory = "$tempDirectory/directory_move".also { mkdirs(it) }

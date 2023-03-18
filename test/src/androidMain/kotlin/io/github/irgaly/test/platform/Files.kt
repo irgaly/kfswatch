@@ -31,7 +31,6 @@ actual class Files {
 
         actual suspend fun move(source: String, destination: String): Boolean =
             withContext(Dispatchers.IO) {
-                // 確認が必要:
                 // * destination にファイルがある場合は上書きされる
                 // * destination に空のディレクトリがある場合は上書きされる
                 File(source).renameTo(File(destination))
