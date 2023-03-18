@@ -70,7 +70,7 @@ class KfswatchSpec : DescribeFunSpec({
     }
 
     describe("基本機能") {
-        it("directory, file の Create, Delete, Rename(Delete -> Create) を検出できる") {
+        it("directory, file の Create, Delete, Modify を検出できる") {
             val directory = "$tempDirectory/simple".also { mkdirs(it) }
             val watcher = createWatcher()
             val errors = watcher.onErrorFlow.testIn(this)
@@ -83,13 +83,14 @@ class KfswatchSpec : DescribeFunSpec({
                     Event(KfsEvent.Create, "child2"),
                     Event(KfsEvent.Modify, "child2")
                 )
+                Files.writeFile("$directory/child2", "test2")
+                awaitEvent(KfsEvent.Modify, "child2")
                 Files.writeFile("$directory/child3", "")
                 awaitEvent(KfsEvent.Create, "child3")
-                Files.move("$directory/child2", "$directory/child3")
-                awaitEvents(
-                    Event(KfsEvent.Delete, "child2"),
-                    Event(KfsEvent.Create, "child3")
-                )
+                Files.deleteRecursively("$directory/child1")
+                awaitEvent(KfsEvent.Delete, "child1")
+                Files.deleteRecursively("$directory/child2")
+                awaitEvent(KfsEvent.Delete, "child2")
             }
             errors.ensureAllEventsConsumed()
             errors.cancel()
@@ -106,6 +107,55 @@ class KfswatchSpec : DescribeFunSpec({
                 mkdirs("$directory2/child2")
                 awaitEvent(KfsEvent.Create, "child1", directory1)
                 awaitEvent(KfsEvent.Create, "child2", directory2)
+            }
+            errors.ensureAllEventsConsumed()
+            errors.cancel()
+            watcher.close()
+        }
+    }
+    describe("move 操作") {
+        it("同一ディレクトリ内 move") {
+            val directory = "$tempDirectory/move_inside".also { mkdirs(it) }
+            val file = "$directory/file".also { Files.writeFile(it, "") }
+            val watcher = createWatcher()
+            val errors = watcher.onErrorFlow.testIn(this)
+            watcher.onEventFlow.test {
+                watcher.add(directory)
+                Files.move(file, "$directory/file2")
+                awaitEvents(
+                    Event(KfsEvent.Delete, "file"),
+                    Event(KfsEvent.Create, "file2")
+                )
+            }
+            errors.ensureAllEventsConsumed()
+            errors.cancel()
+            watcher.close()
+        }
+        it("ディレクトリ外への move") {
+            val directory = "$tempDirectory/move_out".also { mkdirs(it) }
+            val target = "$directory/target".also { mkdirs(it) }
+            val file = "$target/file".also { Files.writeFile(it, "") }
+            val watcher = createWatcher()
+            val errors = watcher.onErrorFlow.testIn(this)
+            watcher.onEventFlow.test {
+                watcher.add(target)
+                Files.move(file, "$directory/file2")
+                awaitEvent(KfsEvent.Delete, "file")
+            }
+            errors.ensureAllEventsConsumed()
+            errors.cancel()
+            watcher.close()
+        }
+        it("ディレクトリ内への move") {
+            val directory = "$tempDirectory/move_in".also { mkdirs(it) }
+            val target = "$directory/target".also { mkdirs(it) }
+            val file = "$directory/file".also { Files.writeFile(it, "") }
+            val watcher = createWatcher()
+            val errors = watcher.onErrorFlow.testIn(this)
+            watcher.onEventFlow.test {
+                watcher.add(target)
+                Files.move(file, "$target/file2")
+                awaitEvent(KfsEvent.Create, "file2")
             }
             errors.ensureAllEventsConsumed()
             errors.cancel()
