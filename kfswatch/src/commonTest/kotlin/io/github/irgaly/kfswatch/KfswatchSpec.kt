@@ -207,12 +207,12 @@ class KfswatchSpec : DescribeFunSpec({
                 // JVM on macOS はイベント通知が遅いので、まとめてイベントをチェックする
                 awaitEvents(
                     *(1..64).map {
-                        Event(KfsEvent.Create, "$directory/directory$it")
+                        Event(KfsEvent.Create, "file", "$directory/directory$it")
                     }.toTypedArray()
                 )
-                val target = "$directory/directory65"
-                watcher.addWait(target)
-                errors.awaitItem().targetDirectory shouldBe target
+                val target65 = "$directory/directory65"
+                watcher.add(target65)
+                errors.awaitItem().targetDirectory shouldBe target65
                 watcher.watchingDirectories.size shouldBe 64
                 (1..64).forEach {
                     val target = "$directory/directory$it"
