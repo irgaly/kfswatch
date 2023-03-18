@@ -1,5 +1,6 @@
 package io.github.irgaly.kfswatch.internal.platform
 
+import com.sun.nio.file.SensitivityWatchEventModifier
 import java.io.File
 import java.io.IOException
 import java.nio.file.ClosedWatchServiceException
@@ -52,9 +53,13 @@ internal actual class FileWatcher actual constructor(
                     }
                     val key = targetFile.toPath().register(
                         watchService,
-                        StandardWatchEventKinds.ENTRY_CREATE,
-                        StandardWatchEventKinds.ENTRY_DELETE,
-                        StandardWatchEventKinds.ENTRY_MODIFY
+                        arrayOf(
+                            StandardWatchEventKinds.ENTRY_CREATE,
+                            StandardWatchEventKinds.ENTRY_DELETE,
+                            StandardWatchEventKinds.ENTRY_MODIFY
+                        ),
+                        // JVM on macOS のポーリング実装で、2秒程度のポーリングとする独自オプション
+                        SensitivityWatchEventModifier.HIGH
                     )
                     keys[targetDirectory] = key
                     onStart(targetDirectory)
@@ -70,23 +75,30 @@ internal actual class FileWatcher actual constructor(
                     name = "Kfswatch_FileWatcher",
                     priority = Thread.MIN_PRIORITY
                 ) {
+                    logger?.debug { "FileWatcher thread start" }
                     try {
                         while (true) {
                             // イベント発生までスレッド停止
                             val key = watchService.take()
                             val targetDirectory = (key.watchable() as Path).pathString
                             key.pollEvents().forEach { event ->
+                                logger?.debug {
+                                    "WatchService: kind = ${event.kind()}, context = ${event.context()}, count = ${event.count()}"
+                                }
                                 val path = (event.context() as Path).pathString
-                                when(event.kind()) {
+                                when (event.kind()) {
                                     StandardWatchEventKinds.ENTRY_CREATE -> {
                                         onEvent(targetDirectory, path, FileWatcherEvent.Create)
                                     }
+
                                     StandardWatchEventKinds.ENTRY_DELETE -> {
                                         onEvent(targetDirectory, path, FileWatcherEvent.Delete)
                                     }
+
                                     StandardWatchEventKinds.ENTRY_MODIFY -> {
                                         onEvent(targetDirectory, path, FileWatcherEvent.Modify)
                                     }
+
                                     StandardWatchEventKinds.OVERFLOW -> {
                                         onError(targetDirectory, "Events overflowed: $targetDirectory")
                                     }
@@ -103,6 +115,7 @@ internal actual class FileWatcher actual constructor(
                     } catch (_: InterruptedException) {
                         // WatchService.take(): 割り込みなどによる監視停止
                     }
+                    logger?.debug { "FileWatcher thread finishing" }
                     lock.withLock {
                         if (this.watchService == watchService) {
                             // 例外による監視終了処理
