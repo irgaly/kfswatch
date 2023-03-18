@@ -21,10 +21,10 @@ jobs:
       - uses: ./.github/actions/gradle-cache
       - name: JVM Build
         run: |
-          echo TBA
+          ./gradlew :kfswatch:jvmTestClasses
       - name: Nodejs Build
         run: |
-          echo TBA
+          ./gradlew :kfswatch:jsTestClasses
       - name: Android Build
         if: matrix.platform == 'macos-latest'
         run: |
@@ -32,26 +32,25 @@ jobs:
       - name: Linux Build
         if: matrix.platform == 'ubuntu-latest'
         run: |
-          echo TBA
+          ./gradlew :kfswatch:linkDebugTestLinuxX64
       - name: Windows Build
         if: matrix.platform == 'windows-latest'
         run: |
-          echo TBA
+          ./gradlew :kfswatch:linkDebugTestMingwX64
       - name: iOS Build
         if: matrix.platform == 'macos-latest'
         run: |
           ./gradlew :kfswatch:linkDebugTestIosX64
-          echo TBA
       - name: macOS Build
         if: matrix.platform == 'macos-latest'
         run: |
-          echo TBA
+          ./gradlew :kfswatch:linkDebugTestMacosX64
       - name: JVM Test
         run: |
-          echo TBA
+          ./gradlew :kfswatch:jvmTestClasses
       - name: Nodejs Test
         run: |
-          echo TBA
+          ./gradlew :kfswatch:jsNodeTest
       - name: Android Test
         uses: reactivecircus/android-emulator-runner@v2
         if: matrix.platform == 'macos-latest'
@@ -71,11 +70,11 @@ jobs:
       - name: Linux Test
         if: matrix.platform == 'ubuntu-latest'
         run: |
-          echo TBA
+          ./gradlew :kfswatch:linuxX64Test
       - name: Windows Test
         if: matrix.platform == 'windows-latest'
         run: |
-          echo TBA
+          ./gradlew :kfswatch:mingwX64Test
       - name: iOS Test
         if: matrix.platform == 'macos-latest'
         run: |
@@ -83,4 +82,4 @@ jobs:
       - name: macOS Test
         if: matrix.platform == 'macos-latest'
         run: |
-          echo TBA
+          ./gradlew :kfswatch:macosX64Test
