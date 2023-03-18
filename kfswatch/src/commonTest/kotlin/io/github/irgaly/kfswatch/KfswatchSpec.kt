@@ -318,11 +318,25 @@ class KfswatchSpec : DescribeFunSpec({
                 watcher.addWait(directory)
                 Files.move(directory1, directory2)
                 if (Platform.isJvmMacos) {
-                    // JVM on macOS では上書き対象は Modify で通知される
-                    awaitEvents(
-                        Event(KfsEvent.Delete, "directory1"),
-                        Event(KfsEvent.Modify, "directory2")
-                    )
+                    // JVM on macOS では
+                    // directory が置き換えられたときに以下のどちらかとなる
+                    // * Modify イベントが発生する
+                    // * イベントが検出されない
+                    // directory2 Modify イベントが発生しない可能性に対応する
+                    var received: KfsDirectoryWatcherEvent? = null
+                    repeat(2) {
+                        if (received == null) {
+                            val item = awaitItem()
+                            if (item.event == KfsEvent.Delete) {
+                                received = item
+                            }
+                        }
+                    }
+                    received.should {
+                        it?.event shouldBe KfsEvent.Delete
+                        it?.path shouldBe "directory1"
+                    }
+                    cancelAndIgnoreRemainingEvents()
                 } else {
                     awaitEvents(
                         Event(KfsEvent.Delete, "directory1"),
@@ -333,6 +347,7 @@ class KfswatchSpec : DescribeFunSpec({
             errors.ensureAllEventsConsumed()
             errors.cancel()
             watcher.close()
+
         }
     }
     describe("検出しないもの") {
