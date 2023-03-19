@@ -19,7 +19,7 @@ internal actual class FileWatcher actual constructor(
     private val onError: (targetDirectory: String?, message: String) -> Unit,
     private val logger: Logger?
 ) {
-    private val watchers: MutableMap<String, Watcher> = mutableMapOf()
+    private val watchers: MutableMap<PlatformPath, Watcher> = mutableMapOf()
 
     data class Watcher(
         val parentWatcher: FSWatcher?,
@@ -28,7 +28,9 @@ internal actual class FileWatcher actual constructor(
 
     actual fun start(targetDirectories: List<String>) {
         if (isNodejs()) {
-            for (targetDirectory in targetDirectories.subtract(watchers.keys)) {
+            for (targetDirectoryPath in targetDirectories.map { PlatformPath(it) }
+                .subtract(watchers.keys)) {
+                val targetDirectory = targetDirectoryPath.originalPath
                 if (FileWatcherMaxTargets <= watchers.size) {
                     onError(
                         targetDirectory,
@@ -118,7 +120,7 @@ internal actual class FileWatcher actual constructor(
                 children.addAll(
                     fs.readdirSync(targetDirectory).unsafeCast<Array<String>>()
                 )
-                watchers[targetDirectory] = Watcher(
+                watchers[targetDirectoryPath] = Watcher(
                     parentWatcher?.unsafeCast<FSWatcher>(),
                     watcher.unsafeCast<FSWatcher>()
                 )
@@ -129,12 +131,13 @@ internal actual class FileWatcher actual constructor(
 
     actual fun stop(targetDirectories: List<String>) {
         targetDirectories.forEach { targetDirectory ->
-            val watcher = watchers[targetDirectory]
-            if (watcher != null) {
-                watcher.parentWatcher?.close()
-                watcher.watcher.close()
-                onStop(targetDirectory)
-                watchers.remove(targetDirectory)
+            val path = PlatformPath(targetDirectory)
+            val originalEntry = watchers.entries.firstOrNull { it.key == path }
+            if (originalEntry != null) {
+                originalEntry.value.parentWatcher?.close()
+                originalEntry.value.watcher.close()
+                onStop(originalEntry.key.originalPath)
+                watchers.remove(path)
             }
         }
     }
@@ -143,7 +146,7 @@ internal actual class FileWatcher actual constructor(
         watchers.forEach {
             it.value.parentWatcher?.close()
             it.value.watcher.close()
-            onStop(it.key)
+            onStop(it.key.originalPath)
         }
         watchers.clear()
     }

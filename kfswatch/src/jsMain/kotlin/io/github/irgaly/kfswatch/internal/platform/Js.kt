@@ -14,3 +14,8 @@ internal fun isNodejs(): Boolean {
 internal fun isMacos(): Boolean {
     return (js("require('os').platform()") == "darwin")
 }
+
+@Suppress("unused")
+internal fun isWindows(): Boolean {
+    return (js("require('os').platform()") == "win32")
+}

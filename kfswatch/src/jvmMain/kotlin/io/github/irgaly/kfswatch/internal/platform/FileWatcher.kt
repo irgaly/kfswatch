@@ -28,14 +28,19 @@ internal actual class FileWatcher actual constructor(
 ) {
     private val lock = ReentrantLock()
     private var watchService: WatchService? = null
-    private val keys: MutableMap<String, WatchKey> = mutableMapOf()
+    private val keys: MutableMap<PlatformPath, WatchKey> = mutableMapOf()
 
     actual fun start(targetDirectories: List<String>) {
         lock.withLock {
             var watchService: WatchService? = this.watchService
-            for(targetDirectory in targetDirectories.subtract(keys.keys)) {
+            for (targetDirectoryPath in targetDirectories.map { PlatformPath(it) }
+                .subtract(keys.keys)) {
+                val targetDirectory = targetDirectoryPath.originalPath
                 if (FileWatcherMaxTargets <= keys.size) {
-                    onError(targetDirectory, "too many targets: max = $FileWatcherMaxTargets, cannot start watching $targetDirectory")
+                    onError(
+                        targetDirectory,
+                        "too many targets: max = $FileWatcherMaxTargets, cannot start watching $targetDirectory"
+                    )
                     continue
                 }
                 val targetFile = File(targetDirectory)
@@ -61,7 +66,7 @@ internal actual class FileWatcher actual constructor(
                         // JVM on macOS のポーリング実装で、2秒程度のポーリングとする独自オプション
                         SensitivityWatchEventModifier.HIGH
                     )
-                    keys[targetDirectory] = key
+                    keys[targetDirectoryPath] = key
                     onStart(targetDirectory)
                 } catch (error: IOException) {
                     // FileSystem.newWatchService(), Path.register()
@@ -142,11 +147,12 @@ internal actual class FileWatcher actual constructor(
     actual fun stop(targetDirectories: List<String>) {
         lock.withLock {
             targetDirectories.forEach { targetDirectory ->
-                val key = keys[targetDirectory]
-                if (key != null) {
-                    key.cancel()
-                    onStop(targetDirectory)
-                    keys.remove(targetDirectory)
+                val path = PlatformPath(targetDirectory)
+                val originalEntry = keys.entries.firstOrNull { it.key == path }
+                if (originalEntry != null) {
+                    originalEntry.value.cancel()
+                    onStop(originalEntry.key.originalPath)
+                    keys.remove(path)
                 }
             }
             if (keys.isEmpty()) {
@@ -161,7 +167,7 @@ internal actual class FileWatcher actual constructor(
             watchService?.close()
             watchService = null
             keys.forEach {
-                onStop(it.key)
+                onStop(it.key.originalPath)
             }
             keys.clear()
         }

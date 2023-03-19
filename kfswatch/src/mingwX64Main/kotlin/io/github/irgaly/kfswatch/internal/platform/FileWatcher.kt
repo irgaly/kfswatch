@@ -83,15 +83,20 @@ internal actual class FileWatcher actual constructor(
         InitializeCriticalSection(value.ptr)
         value.ptr
     }
-    private val handles: MutableMap<String, HANDLE> = mutableMapOf()
+    private val handles: MutableMap<PlatformPath, HANDLE> = mutableMapOf()
     private var threadResetHandle: HANDLE? = null
 
     actual fun start(targetDirectories: List<String>) {
         withLock {
-            val handles = mutableMapOf<String, HANDLE>()
-            for(targetDirectory in targetDirectories.subtract(this@FileWatcher.handles.keys)) {
+            val handles = mutableMapOf<PlatformPath, HANDLE>()
+            for (targetDirectoryPath in targetDirectories.map { PlatformPath(it) }
+                .subtract(this@FileWatcher.handles.keys)) {
+                val targetDirectory = targetDirectoryPath.originalPath
                 if (FileWatcherMaxTargets <= (this@FileWatcher.handles.size + handles.size)) {
-                    onError(targetDirectory, "too many targets: max = $FileWatcherMaxTargets, cannot start watching $targetDirectory")
+                    onError(
+                        targetDirectory,
+                        "too many targets: max = $FileWatcherMaxTargets, cannot start watching $targetDirectory"
+                    )
                     continue
                 }
                 val fileAttributes = GetFileAttributesW(targetDirectory)
@@ -117,7 +122,7 @@ internal actual class FileWatcher actual constructor(
                     onError(targetDirectory, "cannot open target: $targetDirectory")
                     continue
                 }
-                handles[targetDirectory] = handle
+                handles[targetDirectoryPath] = handle
                 onStart(targetDirectory)
             }
             if (handles.isNotEmpty()) {
@@ -160,12 +165,13 @@ internal actual class FileWatcher actual constructor(
     actual fun stop(targetDirectories: List<String>) {
         withLock {
             targetDirectories.forEach { targetDirectory ->
-                val handle = handles[targetDirectory]
-                if (handle != null) {
-                    CancelIo(handle)
-                    CloseHandle(handle)
-                    onStop(targetDirectory)
-                    handles.remove(targetDirectory)
+                val path = PlatformPath(targetDirectory)
+                val originalEntry = handles.entries.firstOrNull { it.key == path }
+                if (originalEntry != null) {
+                    CancelIo(originalEntry.value)
+                    CloseHandle(originalEntry.value)
+                    onStop(originalEntry.key.originalPath)
+                    handles.remove(path)
                 }
             }
         }
@@ -176,7 +182,7 @@ internal actual class FileWatcher actual constructor(
             handles.forEach {
                 CancelIo(it.value)
                 CloseHandle(it.value)
-                onStop(it.key)
+                onStop(it.key.originalPath)
             }
             handles.clear()
         }
@@ -196,32 +202,33 @@ internal actual class FileWatcher actual constructor(
             val bufferLength = 1024 * 2
             val bufferSize = (sizeOf<DWORDVar>() * bufferLength).toUInt()
             val bytesReturned = alloc<DWORDVar>()
-            val watchTargets = linkedMapOf<String, ReadDirectoryData>()
-            val resetTargets = mutableMapOf<String, ReadDirectoryData>()
+            val watchTargets = linkedMapOf<PlatformPath, ReadDirectoryData>()
+            val resetTargets = mutableMapOf<PlatformPath, ReadDirectoryData>()
             var threadResetHandle: HANDLE? = null
             while (true) {
                 withLock {
                     threadResetHandle = this@FileWatcher.threadResetHandle
-                    this@FileWatcher.handles.keys.subtract(watchTargets.keys).forEach { targetDirectory ->
-                        val buffer = nativeHeap.allocArray<DWORDVar>(bufferLength)
-                        val overlapped = nativeHeap.alloc<OVERLAPPED>()
-                        val eventHandle = CreateEventW(
-                            lpEventAttributes = null,
-                            bManualReset = TRUE,
-                            bInitialState = FALSE,
-                            lpName = null
-                        ).also {
-                            overlapped.hEvent = it
+                    this@FileWatcher.handles.keys.subtract(watchTargets.keys)
+                        .forEach { targetDirectoryPath ->
+                            val buffer = nativeHeap.allocArray<DWORDVar>(bufferLength)
+                            val overlapped = nativeHeap.alloc<OVERLAPPED>()
+                            val eventHandle = CreateEventW(
+                                lpEventAttributes = null,
+                                bManualReset = TRUE,
+                                bInitialState = FALSE,
+                                lpName = null
+                            ).also {
+                                overlapped.hEvent = it
+                            }
+                            val data = ReadDirectoryData(
+                                checkNotNull(this@FileWatcher.handles[targetDirectoryPath]),
+                                checkNotNull(eventHandle),
+                                overlapped,
+                                buffer
+                            )
+                            watchTargets[targetDirectoryPath] = data
+                            resetTargets[targetDirectoryPath] = data
                         }
-                        val data = ReadDirectoryData(
-                            checkNotNull(this@FileWatcher.handles[targetDirectory]),
-                            checkNotNull(eventHandle),
-                            overlapped,
-                            buffer
-                        )
-                        watchTargets[targetDirectory] = data
-                        resetTargets[targetDirectory] = data
-                    }
                     resetTargets.forEach { entry ->
                         ResetEvent(entry.value.eventHandle)
                         val watchResult = ReadDirectoryChangesW(
@@ -250,7 +257,10 @@ internal actual class FileWatcher actual constructor(
                                 }
                                 else -> {
                                     // その他のエラー
-                                    onError(entry.key, "ReadDirectoryChangesW failed: $${entry.key}")
+                                    onError(
+                                        entry.key.originalPath,
+                                        "ReadDirectoryChangesW failed: $${entry.key}"
+                                    )
                                     CloseHandle(entry.value.directoryHandle)
                                 }
                             }
@@ -303,7 +313,10 @@ internal actual class FileWatcher actual constructor(
                         if (bytesReturned.value == 0U) {
                             // バッファー読み込み失敗
                             // buffer に情報が収まらなかったとき
-                            onError(target.key, "ReadDirectoryChangesW buffer overflow: ${target.key}")
+                            onError(
+                                target.key.originalPath,
+                                "ReadDirectoryChangesW buffer overflow: ${target.key}"
+                            )
                         } else {
                             var infoPointer = target.value.buffer.reinterpret<FILE_NOTIFY_INFORMATION>()
                             while(true) {
@@ -320,14 +333,26 @@ internal actual class FileWatcher actual constructor(
                                 when (info.Action.toInt()) {
                                     FILE_ACTION_ADDED,
                                     FILE_ACTION_RENAMED_NEW_NAME-> {
-                                        onEvent(target.key, path, FileWatcherEvent.Create)
+                                        onEvent(
+                                            target.key.originalPath,
+                                            path,
+                                            FileWatcherEvent.Create
+                                        )
                                     }
                                     FILE_ACTION_REMOVED,
                                     FILE_ACTION_RENAMED_OLD_NAME-> {
-                                        onEvent(target.key, path, FileWatcherEvent.Delete)
+                                        onEvent(
+                                            target.key.originalPath,
+                                            path,
+                                            FileWatcherEvent.Delete
+                                        )
                                     }
                                     FILE_ACTION_MODIFIED -> {
-                                        onEvent(target.key, path, FileWatcherEvent.Modify)
+                                        onEvent(
+                                            target.key.originalPath,
+                                            path,
+                                            FileWatcherEvent.Modify
+                                        )
                                     }
                                 }
                                 if (info.NextEntryOffset == 0U) {

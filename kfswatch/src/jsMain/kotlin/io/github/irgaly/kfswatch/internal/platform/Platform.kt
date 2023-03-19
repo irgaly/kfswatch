@@ -10,6 +10,7 @@ internal actual class Platform {
         actual val isJvmWindows: Boolean = false
         actual val isNodejs: Boolean = isNodejs()
         actual val isNodejsMacos: Boolean = isMacos()
+        actual val isNodejsWindows: Boolean = isWindows()
         actual val isBrowser: Boolean = isBrowser()
         actual val isLinux: Boolean = false
         actual val isWindows: Boolean = false
