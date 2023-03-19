@@ -1,6 +1,6 @@
+import com.android.build.gradle.BaseExtension
 import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
 import org.jetbrains.kotlin.gradle.dsl.KotlinProjectExtension
-import com.android.build.gradle.BaseExtension
 
 plugins {
     kotlin("multiplatform") version libs.versions.kotlin apply false
@@ -15,6 +15,7 @@ plugins {
 subprojects {
     tasks.withType<Test> {
         useJUnitPlatform()
+        testLogging.showStandardStreams = true
     }
     pluginManager.withPlugin("org.jetbrains.kotlin.multiplatform") {
         extensions.configure<KotlinProjectExtension> {
