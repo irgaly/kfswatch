@@ -137,7 +137,7 @@ actual class Files {
 
         actual suspend fun deleteRecursively(path: String): Boolean =
             withContext(Dispatchers.Default) {
-                val ret = nftw(
+                val result = nftw(
                     path,
                     staticCFunction { pathName, _, _, _ ->
                         remove(pathName!!.toKString())
@@ -145,7 +145,7 @@ actual class Files {
                     64,
                     FTW_DEPTH or FTW_PHYS
                 )
-                (ret != -1)
+                (result != -1)
             }
     }
 }

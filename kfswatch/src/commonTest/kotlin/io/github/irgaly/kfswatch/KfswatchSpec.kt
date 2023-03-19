@@ -120,7 +120,13 @@ class KfswatchSpec : DescribeFunSpec({
                 Files.deleteRecursively("$directory/child1")
                 awaitEvent(KfsEvent.Delete, "child1")
                 Files.deleteRecursively("$directory/child2")
-                awaitEvent(KfsEvent.Delete, "child2")
+                if (Platform.isJvmWindows || Platform.isWindows) {
+                    // Windows ではファイル削除で Modify, Delete が発生する
+                    awaitEvents(
+                        Event(KfsEvent.Modify, "child2"),
+                        Event(KfsEvent.Delete, "child2")
+                    )
+                }
             }
             errors.ensureAllEventsConsumed()
             errors.cancel()
