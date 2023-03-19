@@ -16,7 +16,7 @@ actual class Files {
                 continuation.resume("js-browser-dummy-temporary-directory")
             } else {
                 @Suppress("UnsafeCastFromDynamic")
-                fs.mkdtemp(path.join(os.tmpdir(), "")).then { path ->
+                fs.mkdtemp(path.join(os.tmpdir(), "temp_")).then { path ->
                     continuation.resume(path.unsafeCast<String>())
                 }.catch { error ->
                     continuation.resumeWithException(IllegalStateException(error.message.unsafeCast<String>()))
@@ -29,7 +29,7 @@ actual class Files {
                 "js-browser-dummy-temporary-directory"
             } else {
                 @Suppress("UnsafeCastFromDynamic")
-                fsSync.mkdtempSync(path.join(os.tmpdir(), "")).unsafeCast<String>()
+                fsSync.mkdtempSync(path.join(os.tmpdir(), "temp_")).unsafeCast<String>()
             }
         }
 
