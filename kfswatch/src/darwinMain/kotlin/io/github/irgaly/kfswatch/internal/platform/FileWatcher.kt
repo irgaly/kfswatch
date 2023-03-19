@@ -19,6 +19,7 @@ import platform.Foundation.NSError
 import platform.Foundation.NSFileManager
 import platform.Foundation.NSLock
 import platform.Foundation.NSString
+import platform.darwin.DISPATCH_QUEUE_PRIORITY_DEFAULT
 import platform.darwin.DISPATCH_QUEUE_SERIAL
 import platform.darwin.EVFILT_READ
 import platform.darwin.EVFILT_VNODE
@@ -26,10 +27,15 @@ import platform.darwin.EV_ADD
 import platform.darwin.EV_CLEAR
 import platform.darwin.EV_DELETE
 import platform.darwin.EV_ERROR
+import platform.darwin.NOTE_ATTRIB
 import platform.darwin.NOTE_DELETE
+import platform.darwin.NOTE_EXTEND
+import platform.darwin.NOTE_LINK
 import platform.darwin.NOTE_RENAME
+import platform.darwin.NOTE_REVOKE
 import platform.darwin.NOTE_WRITE
 import platform.darwin.dispatch_async
+import platform.darwin.dispatch_get_global_queue
 import platform.darwin.dispatch_queue_create
 import platform.darwin.dispatch_queue_t
 import platform.darwin.kevent
@@ -135,6 +141,9 @@ internal actual class FileWatcher actual constructor(
                         platform.posix.close(kqueue)
                         continue
                     }
+                    logger?.debug {
+                        "pipe opened: descriptors[${threadResetPipeDescriptors.first} - ${threadResetPipeDescriptors.second}]"
+                    }
                     memScoped {
                         // pipe をイベント登録
                         val event = alloc<kevent>()
@@ -142,9 +151,9 @@ internal actual class FileWatcher actual constructor(
                             ident = threadResetPipeDescriptors.first.convert()
                             filter = EVFILT_READ.toShort()
                             flags = (
-                                EV_ADD or // イベント追加
-                                EV_CLEAR // イベント受信後にイベントを自動リセット
-                            ).toUShort()
+                                    EV_ADD or // イベント追加
+                                            EV_CLEAR // イベント受信後にイベントを自動リセット
+                                    ).toUShort()
                             fflags = 0U
                             data = 0
                             udata = null
@@ -191,6 +200,7 @@ internal actual class FileWatcher actual constructor(
             }
             if (changed) {
                 // スレッドのリセット指示
+                logger?.debug { "send thread reset" }
                 write(
                     __fd = checkNotNull(threadResource).threadResetPipeDescriptors.second,
                     __buf = cValuesOf(0.toByte()),
@@ -209,14 +219,17 @@ internal actual class FileWatcher actual constructor(
                         it.second.state = WatchState.Stopping
                         changed = true
                     }
+
                     WatchState.Adding -> {
                         targetStatuses.remove(it.first)
                     }
+
                     WatchState.Stopping -> {}
                 }
             }
             if (changed) {
                 // スレッドのリセット指示
+                logger?.debug { "send thread reset" }
                 write(
                     __fd = checkNotNull(threadResource).threadResetPipeDescriptors.second,
                     __buf = cValuesOf(0.toByte()),
@@ -231,11 +244,13 @@ internal actual class FileWatcher actual constructor(
             logger?.debug { "watchingThread() start" }
             val kevent = alloc<kevent>()
             var finishing = false
+
             data class ChildDescriptor(
                 val targetDirectory: String,
                 val path: String,
                 val descriptor: Int
             )
+
             data class WatchInfo(
                 val targetDirectory: String,
                 val childDescriptors: MutableMap<String, ChildDescriptor> = mutableMapOf()
@@ -256,6 +271,7 @@ internal actual class FileWatcher actual constructor(
                         val targetDirectory = refreshInfo.first
                         val status = checkNotNull(targetStatuses[targetDirectory])
                         if (status.state == WatchState.Watching) {
+                            logger?.debug { "refresh children: $targetDirectory" }
                             // 監視中の状態のみ再列挙対応
                             val info = checkNotNull(watchInfo[targetDirectory])
                             refreshInfo.second?.let { descriptor ->
@@ -285,6 +301,7 @@ internal actual class FileWatcher actual constructor(
                                             info.childDescriptors[path] = ChildDescriptor(
                                                 targetDirectory, path, descriptor
                                             )
+                                            onEvent(targetDirectory, path, FileWatcherEvent.Create)
                                         }
                                     }
                                 }
@@ -305,13 +322,16 @@ internal actual class FileWatcher actual constructor(
                         onStop(targetDirectory)
                     }
                     for(entry in targetStatuses.toList()) {
+                        logger?.debug { "status: $entry" }
                         val targetDirectory = entry.first
                         if (finishing) {
+                            logger?.debug { "finishing" }
                             // 終了処理
                             when (entry.second.state) {
                                 WatchState.Adding -> {
                                     targetStatuses.remove(targetDirectory)
                                 }
+
                                 WatchState.Watching,
                                 WatchState.Stopping -> {
                                     // 登録解除
@@ -371,6 +391,7 @@ internal actual class FileWatcher actual constructor(
                                     }
                                     onStart(targetDirectory)
                                 }
+
                                 WatchState.Stopping -> {
                                     // 登録解除
                                     stopWatching(targetDirectory)
@@ -391,6 +412,10 @@ internal actual class FileWatcher actual constructor(
                         platform.posix.close(resource.threadResetPipeDescriptors.second)
                         platform.posix.close(resource.kqueue)
                         threadResource = null
+                        logger?.debug {
+                            "pipe closed: [${resource.threadResetPipeDescriptors.first} - ${resource.threadResetPipeDescriptors.second}]"
+                        }
+                        logger?.debug { "kqueue closed" }
                         true
                     } else false
                 }
@@ -418,7 +443,7 @@ internal actual class FileWatcher actual constructor(
                 }
                 if (0 < eventCount) {
                     logger?.debug {
-                        "kevent: event = $kevent"
+                        "kevent: ${kevent.toDebugString()}"
                     }
                     if (kevent.ident == checkNotNull(threadResetPipeDescriptor).convert<uintptr_t>()) {
                         logger?.debug { "kevent: threadResetPipeDescriptor received" }
@@ -432,9 +457,6 @@ internal actual class FileWatcher actual constructor(
                             )
                         }
                     } else {
-                        logger?.debug {
-                            "kevent: ident=${kevent.ident} udata=${kevent.udata?.reinterpret<ByteVar>()?.toKString()}"
-                        }
                         val descriptor = kevent.ident.toInt()
                         var (info, childDescriptor) = descriptorsToWatchInfo[descriptor] ?: Pair(null, null)
                         val targetDirectory = info?.targetDirectory ?: descriptorsToTargetDirectory[descriptor]
@@ -444,11 +466,11 @@ internal actual class FileWatcher actual constructor(
                         // 監視イベントが遅れて発生したときには watchInfo == null となることがありえる
                         if (info != null) {
                             logger?.debug {
-                                "          targetDirectory=${info.targetDirectory}"
+                                "kevent: -> targetDirectory=${info.targetDirectory}"
                             }
                             if (childDescriptor == null) {
                                 // 監視対象ディレクトリのイベント
-                                if (kevent.fflags.toInt() == NOTE_WRITE) {
+                                if ((kevent.fflags.toInt() and NOTE_WRITE) == NOTE_WRITE) {
                                     // 監視対象ディレクトリの子要素が変化した
                                     // * 検出されそう
                                     //     * 子要素の追加
@@ -458,23 +480,33 @@ internal actual class FileWatcher actual constructor(
                                 }
                             } else {
                                 // 監視対象ディレクトリの子要素のイベント
-                                when (kevent.fflags.toInt()) {
-                                    NOTE_WRITE -> {
-                                        // 子要素のファイル・ディレクトリへの変更操作があった
-                                        onEvent(info.targetDirectory, childDescriptor.path, FileWatcherEvent.Modify)
-                                    }
-                                    NOTE_DELETE -> {
-                                        // 子要素のファイル・ディレクトリの unlink があった
-                                        // 親ディレクトリの NOTE_WRITE は発生しそう
-                                        onEvent(info.targetDirectory, childDescriptor.path, FileWatcherEvent.Delete)
-                                        infoToRefresh = Pair(info.targetDirectory, childDescriptor)
-                                    }
-                                    NOTE_RENAME -> {
-                                        // 子要素のファイル・ディレクトリの rename があった
-                                        // 親ディレクトリの NOTE_WRITE は発生しそう
-                                        onEvent(info.targetDirectory, childDescriptor.path, FileWatcherEvent.Delete)
-                                        infoToRefresh = Pair(info.targetDirectory, childDescriptor)
-                                    }
+                                if ((kevent.fflags.toInt() and NOTE_WRITE) == NOTE_WRITE) {
+                                    // 子要素のファイル・ディレクトリへの変更操作があった
+                                    onEvent(
+                                        info.targetDirectory,
+                                        childDescriptor.path,
+                                        FileWatcherEvent.Modify
+                                    )
+                                }
+                                if ((kevent.fflags.toInt() and NOTE_DELETE) == NOTE_DELETE) {
+                                    // 子要素のファイル・ディレクトリの unlink があった
+                                    // 親ディレクトリの NOTE_WRITE は発生しそう
+                                    onEvent(
+                                        info.targetDirectory,
+                                        childDescriptor.path,
+                                        FileWatcherEvent.Delete
+                                    )
+                                    infoToRefresh = Pair(info.targetDirectory, childDescriptor)
+                                }
+                                if ((kevent.fflags.toInt() and NOTE_RENAME) == NOTE_RENAME) {
+                                    // 子要素のファイル・ディレクトリの rename があった
+                                    // 親ディレクトリの NOTE_WRITE は発生しそう
+                                    onEvent(
+                                        info.targetDirectory,
+                                        childDescriptor.path,
+                                        FileWatcherEvent.Delete
+                                    )
+                                    infoToRefresh = Pair(info.targetDirectory, childDescriptor)
                                 }
                             }
                         }
@@ -486,7 +518,12 @@ internal actual class FileWatcher actual constructor(
     }
 
     actual fun close() {
-        dispatch_async(queue = dispatchQueue) {
+        dispatch_async(
+            queue = dispatch_get_global_queue(
+                identifier = DISPATCH_QUEUE_PRIORITY_DEFAULT.convert(),
+                flags = 0
+            )
+        ) {
             stopAll()
         }
     }
@@ -532,7 +569,7 @@ internal actual class FileWatcher actual constructor(
                     nevents = 0,
                     timeout = null
                 )
-                logger?.debug { "kevent registered: $targetDirectory, descriptor=$descriptor" }
+                logger?.debug { "kevent registered: descriptor=$descriptor, target=$targetDirectory" }
                 descriptor
             }
         }
@@ -575,7 +612,7 @@ internal actual class FileWatcher actual constructor(
                     nevents = 0,
                     timeout = null
                 )
-                logger?.debug { "kevent registered: $targetDirectory/$path, descriptor=$descriptor" }
+                logger?.debug { "kevent registered child: descriptor=$descriptor, child=$targetDirectory/$path" }
                 descriptor
             }
         }
@@ -621,5 +658,30 @@ internal actual class FileWatcher actual constructor(
             }
             Pair(children ?: emptyList(), error.value?.toString())
         }
+    }
+
+    private fun kevent.toDebugString(): String {
+        val fflagsString = listOf(
+            NOTE_DELETE to "NOTE_DELETE", // vnode was removed
+            NOTE_WRITE to "NOTE_WRITE", // data contents changed
+            NOTE_EXTEND to "NOTE_EXTEND", // size increased
+            NOTE_ATTRIB to "NOTE_ATTRIB", // attributes changed
+            NOTE_LINK to "NOTE_LINK", // link count changed
+            NOTE_RENAME to "NOTE_RENAME", // vnode was renamed
+            NOTE_REVOKE to "NOTE_REVOKE" // vnode access was revoked
+        ).filter {
+            ((fflags.toInt() and it.first) == it.first)
+        }.map {
+            "${it.second}:0x${it.first.toString(16)}"
+        }.let {
+            if (it.isEmpty()) {
+                "x"
+            } else it.joinToString(", ")
+        }
+        return "{ident=$ident, fflags=0x${fflags.toString(16)}($fflagsString),udata=${
+            udata?.reinterpret<ByteVar>()?.toKString()
+        }, data=$data, filter=0x${
+            filter.toUShort().toString(16)
+        }, flags=0x${flags.toString(16)}}"
     }
 }
