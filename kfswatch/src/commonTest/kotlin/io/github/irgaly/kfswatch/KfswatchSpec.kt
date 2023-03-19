@@ -320,8 +320,8 @@ class KfswatchSpec : DescribeFunSpec({
                         )
                     }
 
-                    Platform.isJvmLinux -> {
-                        // JVM on Linux では file2 の Delete が発生する
+                    (Platform.isJvmLinux || Platform.isJvmWindows) -> {
+                        // JVM on Linux, JVM on Windows では file2 の Delete が発生する
                         awaitEvents(
                             Event(KfsEvent.Delete, "file1"),
                             Event(KfsEvent.Delete, "file2"),
@@ -373,7 +373,7 @@ class KfswatchSpec : DescribeFunSpec({
                         cancelAndIgnoreRemainingEvents()
                     }
 
-                    Platform.isJvmLinux -> {
+                    (Platform.isJvmLinux || Platform.isJvmWindows) -> {
                         // JVM on Linux では directory2 の Delete が発生する
                         awaitEvents(
                             Event(KfsEvent.Delete, "directory1"),
