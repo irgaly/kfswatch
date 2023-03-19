@@ -5,6 +5,7 @@ internal expect class Platform {
         val isAndroid: Boolean
         val isIos: Boolean
         val isJvm: Boolean
+        val isJvmLinux: Boolean
         val isJvmMacos: Boolean
         val isNodejs: Boolean
         val isNodejsMacos: Boolean

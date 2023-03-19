@@ -298,18 +298,31 @@ class KfswatchSpec : DescribeFunSpec({
                 watcher.addWait(directory)
                 val result = Files.move(file1, file2)
                 result shouldBe true
-                if (Platform.isJvmMacos || Platform.isNodejs) {
-                    // JVM on macOS では上書き対象は Modify で通知される
-                    // Nodejs も上書きは rename - Modify で通知される
-                    awaitEvents(
-                        Event(KfsEvent.Delete, "file1"),
-                        Event(KfsEvent.Modify, "file2")
-                    )
-                } else {
-                    awaitEvents(
-                        Event(KfsEvent.Delete, "file1"),
-                        Event(KfsEvent.Create, "file2")
-                    )
+                when {
+                    (Platform.isJvmMacos || Platform.isNodejs) -> {
+                        // JVM on macOS では上書き対象は Modify で通知される
+                        // Nodejs も上書きは rename - Modify で通知される
+                        awaitEvents(
+                            Event(KfsEvent.Delete, "file1"),
+                            Event(KfsEvent.Modify, "file2")
+                        )
+                    }
+
+                    Platform.isJvmLinux -> {
+                        // JVM on Linux では file2 の Delete が発生する
+                        awaitEvents(
+                            Event(KfsEvent.Delete, "file1"),
+                            Event(KfsEvent.Delete, "file2"),
+                            Event(KfsEvent.Modify, "file2")
+                        )
+                    }
+
+                    else -> {
+                        awaitEvents(
+                            Event(KfsEvent.Delete, "file1"),
+                            Event(KfsEvent.Create, "file2")
+                        )
+                    }
                 }
             }
             errors.ensureAllEventsConsumed()

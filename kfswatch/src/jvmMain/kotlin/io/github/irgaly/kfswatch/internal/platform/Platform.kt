@@ -5,6 +5,7 @@ internal actual class Platform {
         actual val isAndroid: Boolean = false
         actual val isIos: Boolean = false
         actual val isJvm: Boolean = true
+        actual val isJvmLinux: Boolean = System.getProperty("os.name").startsWith("Linux")
         actual val isJvmMacos: Boolean = System.getProperty("os.name").startsWith("Mac OS")
         actual val isNodejs: Boolean = false
         actual val isNodejsMacos: Boolean = false
