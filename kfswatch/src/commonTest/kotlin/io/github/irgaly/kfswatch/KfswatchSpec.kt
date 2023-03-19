@@ -313,7 +313,7 @@ class KfswatchSpec : DescribeFunSpec({
                         awaitEvents(
                             Event(KfsEvent.Delete, "file1"),
                             Event(KfsEvent.Delete, "file2"),
-                            Event(KfsEvent.Modify, "file2")
+                            Event(KfsEvent.Create, "file2")
                         )
                     }
 
@@ -359,6 +359,15 @@ class KfswatchSpec : DescribeFunSpec({
                             it?.path shouldBe "directory1"
                         }
                         cancelAndIgnoreRemainingEvents()
+                    }
+
+                    Platform.isJvmLinux -> {
+                        // JVM on Linux では directory2 の Delete が発生する
+                        awaitEvents(
+                            Event(KfsEvent.Delete, "directory1"),
+                            Event(KfsEvent.Delete, "directory2"),
+                            Event(KfsEvent.Create, "directory2")
+                        )
                     }
 
                     Platform.isNodejs -> {
