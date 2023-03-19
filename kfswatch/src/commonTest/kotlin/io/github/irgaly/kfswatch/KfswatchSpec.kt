@@ -107,10 +107,15 @@ class KfswatchSpec : DescribeFunSpec({
                 mkdirs("$directory/child1")
                 awaitEvent(KfsEvent.Create, "child1")
                 Files.writeFile("$directory/child2", "test")
-                if (Platform.isJvmMacos || Platform.isNodejsMacos) {
+                if (Platform.isJvmMacos
+                    || Platform.isNodejsMacos
+                    || Platform.isMacos
+                    || Platform.isIos
+                ) {
                     // JVM on macOS はポーリング監視実装のため
                     // 新規作成では Modify イベントは発生しない
                     // Nodejs on macOS も Modify は発生しない
+                    // macOS, iOS kqueue も Modify は発生しない
                     awaitEvents(
                         Event(KfsEvent.Create, "child2")
                     )
