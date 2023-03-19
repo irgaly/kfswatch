@@ -449,11 +449,18 @@ class KfswatchSpec : DescribeFunSpec({
             val errors = watcher.onErrorFlow.testIn(this)
             watcher.onEventFlow.test(timeout = 5.seconds) {
                 watcher.addWait(target)
-                Files.move(parent, "$directory/parent2")
-                if (!Platform.isJvmMacos && !Platform.isNodejsMacos) {
-                    // JVM on macOS, Nodejs on macOS は監視対象の親ディレクトリの移動で監視解除される
-                    Files.writeFile("$directory/parent2/target/child", "")
-                    awaitEvent(KfsEvent.Create, "child")
+                if (
+                    !Platform.isJvmWindows &&
+                    !Platform.isNodejsWindows &&
+                    !Platform.isWindows
+                ) {
+                    // Windows では監視対象の親ディレクトリは移動が失敗する
+                    Files.move(parent, "$directory/parent2")
+                    if (!Platform.isJvmMacos && !Platform.isNodejsMacos) {
+                        // JVM on macOS, Nodejs on macOS は監視対象の親ディレクトリの移動で監視解除される
+                        Files.writeFile("$directory/parent2/target/child", "")
+                        awaitEvent(KfsEvent.Create, "child")
+                    }
                 }
             }
             errors.ensureAllEventsConsumed()
