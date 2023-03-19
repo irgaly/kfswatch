@@ -10,6 +10,7 @@ import io.github.irgaly.test.platform.Files
 import io.kotest.assertions.fail
 import io.kotest.core.test.TestScope
 import io.kotest.matchers.collections.beEmpty
+import io.kotest.matchers.collections.shouldBeIn
 import io.kotest.matchers.should
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.delay
@@ -375,16 +376,48 @@ class KfswatchSpec : DescribeFunSpec({
                         cancelAndIgnoreRemainingEvents()
                     }
 
-                    (Platform.isJvmLinux
-                            || Platform.isJvmWindows
-                            || Platform.isNodejsLinux) -> {
+                    (Platform.isJvmLinux || Platform.isJvmWindows) -> {
                         // JVM on Linux, JVM on Windows では directory2 の Delete が発生する
-                        // Nodejs on Linux では directory2 を削除してから rename する
                         awaitEvents(
                             Event(KfsEvent.Delete, "directory1"),
                             Event(KfsEvent.Delete, "directory2"),
                             Event(KfsEvent.Create, "directory2")
                         )
+                    }
+
+                    Platform.isNodejsLinux -> {
+                        // Nodejs on Linux では directory2 を削除してから rename する
+                        // 上書きされる directory2 は Delete - Create または Modify - Modify
+                        // で通知される
+                        val events = listOf(
+                            awaitItem(),
+                            awaitItem(),
+                            awaitItem()
+                        )
+                        var isModify = false
+                        events.forEach { event ->
+                            when (event.path) {
+                                "directory1" -> {
+                                    event.event shouldBe KfsEvent.Delete
+                                }
+
+                                "directory2" -> {
+                                    if (event.event == KfsEvent.Modify) {
+                                        isModify = true
+                                    }
+                                    if (isModify) {
+                                        // Modify のときは Modify -> Modify と発生する
+                                        event.event shouldBe KfsEvent.Modify
+                                    } else {
+                                        // Delete のときは Delete -> Create と発生する
+                                        event.event shouldBeIn listOf(
+                                            KfsEvent.Delete,
+                                            KfsEvent.Create
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     }
 
                     Platform.isNodejsMacos -> {
