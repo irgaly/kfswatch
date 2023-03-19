@@ -376,8 +376,11 @@ class KfswatchSpec : DescribeFunSpec({
                         cancelAndIgnoreRemainingEvents()
                     }
 
-                    (Platform.isJvmLinux || Platform.isJvmWindows) -> {
-                        // JVM on Linux, JVM on Windows では directory2 の Delete が発生する
+                    (Platform.isJvmLinux
+                            || Platform.isJvmWindows
+                            || Platform.isNodejsWindows) -> {
+                        // JVM on Linux, JVM on Windows, Nodejs on Windows
+                        // では directory2 の Delete が発生する
                         awaitEvents(
                             Event(KfsEvent.Delete, "directory1"),
                             Event(KfsEvent.Delete, "directory2"),

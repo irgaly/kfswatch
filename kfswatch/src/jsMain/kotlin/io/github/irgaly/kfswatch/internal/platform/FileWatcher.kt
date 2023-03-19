@@ -117,6 +117,15 @@ internal actual class FileWatcher actual constructor(
                         }
                     }
                 }
+                watcher.on("error") { error ->
+                    logger?.debug {
+                        "fs.watch on error: error = ${JSON.stringify(error)}"
+                    }
+                    if (!fs.existsSync(targetDirectory).unsafeCast<Boolean>()) {
+                        // Windows で監視対象ディレクトリが削除された
+                        stop(listOf(targetDirectory))
+                    }
+                }
                 children.addAll(
                     fs.readdirSync(targetDirectory).unsafeCast<Array<String>>()
                 )
