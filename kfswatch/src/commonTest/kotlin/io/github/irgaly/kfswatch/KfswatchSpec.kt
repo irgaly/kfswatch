@@ -328,8 +328,12 @@ class KfswatchSpec : DescribeFunSpec({
                         )
                     }
 
-                    (Platform.isJvmLinux || Platform.isJvmWindows) -> {
-                        // JVM on Linux, JVM on Windows では file2 の Delete が発生する
+                    (Platform.isJvmLinux
+                            || Platform.isJvmWindows
+                            || Platform.isMacos
+                            || Platform.isIos) -> {
+                        // JVM on Linux, JVM on Windows, macOS, iOS
+                        // では file2 の Delete が発生する
                         awaitEvents(
                             Event(KfsEvent.Delete, "file1"),
                             Event(KfsEvent.Delete, "file2"),
@@ -383,8 +387,11 @@ class KfswatchSpec : DescribeFunSpec({
 
                     (Platform.isJvmLinux
                             || Platform.isJvmWindows
-                            || Platform.isNodejsWindows) -> {
+                            || Platform.isNodejsWindows
+                            || Platform.isMacos
+                            || Platform.isIos) -> {
                         // JVM on Linux, JVM on Windows, Nodejs on Windows
+                        // macOS, iOS
                         // では directory2 の Delete が発生する
                         awaitEvents(
                             Event(KfsEvent.Delete, "directory1"),
@@ -509,6 +516,7 @@ class KfswatchSpec : DescribeFunSpec({
             val target = "$parent/target".also { mkdirs(it) }
             val watcher = createWatcher()
             val errors = watcher.onErrorFlow.testIn(this)
+            val stops = watcher.onStopFlow.testIn(this)
             watcher.onEventFlow.test(timeout = 5.seconds) {
                 watcher.addWait(target)
                 if (
@@ -518,13 +526,31 @@ class KfswatchSpec : DescribeFunSpec({
                 ) {
                     // Windows では監視対象の親ディレクトリは移動が失敗する
                     Files.move(parent, "$directory/parent2")
-                    if (!Platform.isJvmMacos && !Platform.isNodejsMacos) {
-                        // JVM on macOS, Nodejs on macOS は監視対象の親ディレクトリの移動で監視解除される
-                        Files.writeFile("$directory/parent2/target/child", "")
-                        awaitEvent(KfsEvent.Create, "child")
+                    when {
+                        (Platform.isMacos || Platform.isIos) -> {
+                            // macOS, iOS
+                            // は監視対象の親ディレクトリの移動は検出されない
+                            // 移動後にディレクトリエントリの増減があると
+                            // ディレクトリを読み取れないことに気づき監視を停止する
+                            Files.writeFile("$directory/parent2/target/child", "")
+                            stops.awaitItem() shouldBe target
+                        }
+
+                        (Platform.isJvmMacos || Platform.isNodejsMacos) -> {
+                            // JVM on macOS, Nodejs on macOS
+                            // は監視対象の親ディレクトリの移動で監視が停止する
+                            // 監視が停止されたことを検出することはできない
+                        }
+
+                        else -> {
+                            Files.writeFile("$directory/parent2/target/child", "")
+                            awaitEvent(KfsEvent.Create, "child")
+                        }
                     }
                 }
             }
+            stops.ensureAllEventsConsumed()
+            stops.cancel()
             errors.ensureAllEventsConsumed()
             errors.cancel()
             watcher.close()
@@ -537,6 +563,11 @@ class KfswatchSpec : DescribeFunSpec({
             watcher.onEventFlow.test(timeout = 5.seconds) {
                 watcher.addWait(directory)
                 mkdirs("$child/child2")
+                if (Platform.isMacos || Platform.isIos) {
+                    // macOS, iOS では
+                    // 子ディレクトリのエントリが変更されると Modify が通知される
+                    awaitEvent(KfsEvent.Modify, "child")
+                }
             }
             errors.ensureAllEventsConsumed()
             errors.cancel()

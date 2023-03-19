@@ -171,11 +171,21 @@ internal actual class FileWatcher actual constructor(
                 }
                 targetStatuses[targetDirectory] = WatchStatus(null, WatchState.Adding)
             }
-            if (this.threadResource == null && resource != null) {
-                this.threadResource = resource
-                // kqueue 監視スレッドの起動
-                dispatch_async(queue = dispatchQueue) {
-                    this@FileWatcher.watchingThread()
+            if (resource != null) {
+                if (this.threadResource != null) {
+                    // スレッドリセットイベント送信
+                    logger?.debug { "send thread reset for adding" }
+                    write(
+                        __fd = checkNotNull(threadResource).threadResetPipeDescriptors.second,
+                        __buf = cValuesOf(0.toByte()),
+                        __nbyte = 1
+                    )
+                } else {
+                    this.threadResource = resource
+                    // kqueue 監視スレッドの起動
+                    dispatch_async(queue = dispatchQueue) {
+                        this@FileWatcher.watchingThread()
+                    }
                 }
             }
         }
@@ -281,8 +291,8 @@ internal actual class FileWatcher actual constructor(
                             }
                             val (children, listErrorMessage) = listChildren(targetDirectory)
                             if (listErrorMessage != null) {
-                                // 読み取りエラーにより監視解除
-                                onError(targetDirectory, "contentsOfDirectoryAtPath error: $listErrorMessage")
+                                // 監視対象が移動または削除されたため監視停止
+                                logger?.debug { "directory not found, stopping: $targetDirectory" }
                                 status.state = WatchState.Stopping
                             } else {
                                 for (path in children) {
@@ -472,10 +482,13 @@ internal actual class FileWatcher actual constructor(
                                 // 監視対象ディレクトリのイベント
                                 if ((kevent.fflags.toInt() and NOTE_WRITE) == NOTE_WRITE) {
                                     // 監視対象ディレクトリの子要素が変化した
-                                    // * 検出されそう
-                                    //     * 子要素の追加
-                                    //     * 子要素の削除
-                                    //     * 子要素の rename
+                                    // * 子要素の追加
+                                    // * 子要素の削除
+                                    // * 子要素の rename
+                                    infoToRefresh = Pair(info.targetDirectory, null)
+                                }
+                                if ((kevent.fflags.toInt() and NOTE_DELETE) == NOTE_DELETE) {
+                                    // 監視対象ディレクトリが削除された
                                     infoToRefresh = Pair(info.targetDirectory, null)
                                 }
                             } else {
@@ -490,7 +503,7 @@ internal actual class FileWatcher actual constructor(
                                 }
                                 if ((kevent.fflags.toInt() and NOTE_DELETE) == NOTE_DELETE) {
                                     // 子要素のファイル・ディレクトリの unlink があった
-                                    // 親ディレクトリの NOTE_WRITE は発生しそう
+                                    // 親ディレクトリの NOTE_WRITE は発生する
                                     onEvent(
                                         info.targetDirectory,
                                         childDescriptor.path,
@@ -500,7 +513,7 @@ internal actual class FileWatcher actual constructor(
                                 }
                                 if ((kevent.fflags.toInt() and NOTE_RENAME) == NOTE_RENAME) {
                                     // 子要素のファイル・ディレクトリの rename があった
-                                    // 親ディレクトリの NOTE_WRITE は発生しそう
+                                    // 親ディレクトリの NOTE_WRITE は発生する
                                     onEvent(
                                         info.targetDirectory,
                                         childDescriptor.path,
@@ -554,10 +567,13 @@ internal actual class FileWatcher actual constructor(
                     ident = descriptor.convert<uintptr_t>()
                     filter = EVFILT_VNODE.toShort()
                     flags = (
-                        EV_ADD or // イベント追加
-                        EV_CLEAR // イベント受信後にイベントを自動リセット
-                    ).toUShort()
-                    fflags = NOTE_WRITE.toUInt() // ディレクトリの子要素の変更のみ監視
+                            EV_ADD or // イベント追加
+                                    EV_CLEAR // イベント受信後にイベントを自動リセット
+                            ).toUShort()
+                    fflags = (
+                            NOTE_WRITE // ディレクトリの子要素の変更を検出
+                                    or NOTE_DELETE // ディレクトリの削除を検出
+                            ).toUInt()
                     data = 0
                     udata = null
                 }
