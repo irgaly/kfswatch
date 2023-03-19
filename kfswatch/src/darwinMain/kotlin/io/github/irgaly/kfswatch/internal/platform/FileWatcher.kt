@@ -2,27 +2,24 @@ package io.github.irgaly.kfswatch.internal.platform
 
 import kotlinx.cinterop.BooleanVar
 import kotlinx.cinterop.ByteVar
-import kotlinx.cinterop.COpaquePointer
 import kotlinx.cinterop.IntVar
 import kotlinx.cinterop.ObjCObjectVar
-import kotlinx.cinterop.StableRef
 import kotlinx.cinterop.UnsafeNumber
 import kotlinx.cinterop.alloc
 import kotlinx.cinterop.allocArray
-import kotlinx.cinterop.asStableRef
 import kotlinx.cinterop.cValuesOf
 import kotlinx.cinterop.convert
 import kotlinx.cinterop.get
 import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.ptr
 import kotlinx.cinterop.reinterpret
-import kotlinx.cinterop.staticCFunction
 import kotlinx.cinterop.toKString
 import kotlinx.cinterop.value
 import platform.Foundation.NSError
 import platform.Foundation.NSFileManager
 import platform.Foundation.NSLock
 import platform.Foundation.NSString
+import platform.darwin.DISPATCH_QUEUE_SERIAL
 import platform.darwin.EVFILT_READ
 import platform.darwin.EVFILT_VNODE
 import platform.darwin.EV_ADD
@@ -32,16 +29,15 @@ import platform.darwin.EV_ERROR
 import platform.darwin.NOTE_DELETE
 import platform.darwin.NOTE_RENAME
 import platform.darwin.NOTE_WRITE
+import platform.darwin.dispatch_async
+import platform.darwin.dispatch_queue_create
+import platform.darwin.dispatch_queue_t
 import platform.darwin.kevent
 import platform.darwin.kqueue
 import platform.posix.O_EVTONLY
 import platform.posix.errno
 import platform.posix.open
 import platform.posix.pipe
-import platform.posix.pthread_create
-import platform.posix.pthread_detach
-import platform.posix.pthread_self
-import platform.posix.pthread_tVar
 import platform.posix.read
 import platform.posix.strerror
 import platform.posix.uintptr_t
@@ -61,6 +57,12 @@ internal actual class FileWatcher actual constructor(
     private val logger: Logger?
 ) {
     private val lock = NSLock()
+    private val dispatchQueue = checkNotNull(
+        dispatch_queue_create(
+            label = "FileWatcher",
+            attr = DISPATCH_QUEUE_SERIAL as dispatch_queue_t
+        )
+    )
     private var threadResource: ThreadResource? = null
     private val targetStatuses: MutableMap<String, WatchStatus> = mutableMapOf()
 
@@ -80,10 +82,10 @@ internal actual class FileWatcher actual constructor(
         Stopping
     }
 
-   actual fun start(targetDirectories: List<String>) {
+    actual fun start(targetDirectories: List<String>) {
         withLock {
             var resource = threadResource
-            for(targetDirectory in targetDirectories.subtract(
+            for (targetDirectory in targetDirectories.subtract(
                 targetStatuses.filter {
                     (it.value.state == WatchState.Watching || it.value.state == WatchState.Adding)
                 }.map { it.key }.toSet()
@@ -91,7 +93,10 @@ internal actual class FileWatcher actual constructor(
                 if (FileWatcherMaxTargets <= targetStatuses.count {
                         (it.value.state == WatchState.Watching || it.value.state == WatchState.Adding)
                     }) {
-                    onError(targetDirectory, "too many targets: max = $FileWatcherMaxTargets, cannot start watching $targetDirectory")
+                    onError(
+                        targetDirectory,
+                        "too many targets: max = $FileWatcherMaxTargets, cannot start watching $targetDirectory"
+                    )
                     continue
                 }
                 val (exists: Boolean, isDirectory: Boolean) = memScoped {
@@ -160,26 +165,12 @@ internal actual class FileWatcher actual constructor(
             if (this.threadResource == null && resource != null) {
                 this.threadResource = resource
                 // kqueue 監視スレッドの起動
-                memScoped {
-                    val thisRef = StableRef.create(this)
-                    pthread_create(
-                        /* __newthread = */ alloc<pthread_tVar>().ptr,
-                        /* __attr = */ null,
-                        /* __start_routine = */ staticCFunction { data: COpaquePointer? ->
-                            initRuntimeIfNeeded()
-                            pthread_detach(pthread_self())
-                            checkNotNull(data)
-                            val receivedThisRef = data.asStableRef<FileWatcher>()
-                            receivedThisRef.get().watchingThread()
-                            receivedThisRef.dispose()
-                        }.reinterpret(),
-                        /* __arg = */ thisRef.asCPointer()
-                    )
+                dispatch_async(queue = dispatchQueue) {
+                    this@FileWatcher.watchingThread()
                 }
             }
         }
     }
-
     actual fun stop(targetDirectories: List<String>) {
         withLock {
             var changed = false
@@ -426,6 +417,9 @@ internal actual class FileWatcher actual constructor(
                     continue
                 }
                 if (0 < eventCount) {
+                    logger?.debug {
+                        "kevent: event = $kevent"
+                    }
                     if (kevent.ident == checkNotNull(threadResetPipeDescriptor).convert<uintptr_t>()) {
                         logger?.debug { "kevent: threadResetPipeDescriptor received" }
                         memScoped {
@@ -492,26 +486,9 @@ internal actual class FileWatcher actual constructor(
     }
 
     actual fun close() {
-        memScoped {
-            val thisRef = StableRef.create(this)
-            pthread_create(
-                /* __newthread = */ alloc<pthread_tVar>().ptr,
-                /* __attr = */ null,
-                /* __start_routine = */ staticCFunction { data: COpaquePointer? ->
-                    initRuntimeIfNeeded()
-                    pthread_detach(pthread_self())
-                    checkNotNull(data)
-                    val receivedThisRef = data.asStableRef<FileWatcher>()
-                    receivedThisRef.get().closeThread()
-                    receivedThisRef.dispose()
-                }.reinterpret(),
-                /* __arg = */ thisRef.asCPointer()
-            )
+        dispatch_async(queue = dispatchQueue) {
+            stopAll()
         }
-    }
-
-    private fun closeThread() {
-        stopAll()
     }
 
     private fun <U> withLock(block: () -> U): U {
