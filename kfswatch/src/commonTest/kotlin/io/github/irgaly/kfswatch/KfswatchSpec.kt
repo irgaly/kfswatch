@@ -106,10 +106,10 @@ class KfswatchSpec : DescribeFunSpec({
                 mkdirs("$directory/child1")
                 awaitEvent(KfsEvent.Create, "child1")
                 Files.writeFile("$directory/child2", "test")
-                if (Platform.isJvmMacos || Platform.isNodejs) {
+                if (Platform.isJvmMacos || Platform.isNodejsMacos) {
                     // JVM on macOS はポーリング監視実装のため
                     // 新規作成では Modify イベントは発生しない
-                    // Nodejs も Modify は発生しない
+                    // Nodejs on macOS も Modify は発生しない
                     awaitEvents(
                         Event(KfsEvent.Create, "child2")
                     )
@@ -132,6 +132,8 @@ class KfswatchSpec : DescribeFunSpec({
                         Event(KfsEvent.Modify, "child2"),
                         Event(KfsEvent.Delete, "child2")
                     )
+                } else {
+                    awaitEvent(KfsEvent.Delete, "child2")
                 }
             }
             errors.ensureAllEventsConsumed()
@@ -373,8 +375,11 @@ class KfswatchSpec : DescribeFunSpec({
                         cancelAndIgnoreRemainingEvents()
                     }
 
-                    (Platform.isJvmLinux || Platform.isJvmWindows) -> {
-                        // JVM on Linux では directory2 の Delete が発生する
+                    (Platform.isJvmLinux
+                            || Platform.isJvmWindows
+                            || Platform.isNodejsLinux) -> {
+                        // JVM on Linux, JVM on Windows では directory2 の Delete が発生する
+                        // Nodejs on Linux では directory2 を削除してから rename する
                         awaitEvents(
                             Event(KfsEvent.Delete, "directory1"),
                             Event(KfsEvent.Delete, "directory2"),
@@ -382,8 +387,8 @@ class KfswatchSpec : DescribeFunSpec({
                         )
                     }
 
-                    Platform.isNodejs -> {
-                        // Nodejs では directory2 を削除してから
+                    Platform.isNodejsMacos -> {
+                        // Nodejs on macOS では directory2 を削除してから
                         // rename する
                         // 上書きは Modify として検出される
                         awaitEvents(
@@ -417,6 +422,10 @@ class KfswatchSpec : DescribeFunSpec({
             watcher.onEventFlow.test(timeout = 5.seconds) {
                 watcher.addWait(target)
                 Files.move(target, "$directory/moved")
+                if (Platform.isNodejs) {
+                    // Nodejs では監視対象の移動または削除で監視が停止される
+                    stops.awaitItem() shouldBe target
+                }
             }
             stops.ensureAllEventsConsumed()
             stops.cancel()
@@ -432,6 +441,18 @@ class KfswatchSpec : DescribeFunSpec({
             watcher.onEventFlow.test(timeout = 5.seconds) {
                 watcher.addWait(directory)
                 Files.deleteRecursively(directory)
+                if (Platform.isNodejsLinux) {
+                    // Nodejs on Linux では監視対象のディレクトリの削除で
+                    // 監視対象ディレクトリの名前で rename イベントが発生する
+                    // Kfswatch では Create, Delete としてイベントが発生するので
+                    // それを無視する
+                    // 不適切なイベントだが、監視対象ディレクトリと同名のファイルのイベント
+                    // との区別が付かないためどうしようもない
+                    awaitEvents(
+                        Event(KfsEvent.Create, "directory_delete"),
+                        Event(KfsEvent.Delete, "directory_delete")
+                    )
+                }
                 stops.awaitItem() shouldBe directory
                 watcher.watchingDirectories should beEmpty()
             }

@@ -9,6 +9,7 @@ internal expect class Platform {
         val isJvmMacos: Boolean
         val isJvmWindows: Boolean
         val isNodejs: Boolean
+        val isNodejsLinux: Boolean
         val isNodejsMacos: Boolean
         val isNodejsWindows: Boolean
         val isBrowser: Boolean
