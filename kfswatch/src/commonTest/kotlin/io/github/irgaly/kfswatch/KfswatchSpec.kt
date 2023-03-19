@@ -67,7 +67,10 @@ class KfswatchSpec : DescribeFunSpec({
             it.event shouldBe event
             it.path shouldBe path
             if (targetDirectory != null) {
-                it.targetDirectory shouldBe targetDirectory
+                val directory = if (Platform.isWindows || Platform.isJvmWindows) {
+                    targetDirectory.replace("/", "\\")
+                } else targetDirectory
+                it.targetDirectory shouldBe directory
             }
         }
     }
@@ -77,9 +80,12 @@ class KfswatchSpec : DescribeFunSpec({
         repeat(list.size) {
             val item = awaitItem()
             val index = list.indexOfFirst { event ->
+                val directory = if (Platform.isWindows || Platform.isJvmWindows) {
+                    event.targetDirectory?.replace("/", "\\")
+                } else event.targetDirectory
                 (event.event == item.event) &&
                         (event.path == item.path) &&
-                        (event.targetDirectory?.let { it == item.targetDirectory } ?: true)
+                        (directory?.let { it == item.targetDirectory } ?: true)
             }
             if (index < 0) {
                 fail("$item is not expected in: ${events.joinToString(",")}")
