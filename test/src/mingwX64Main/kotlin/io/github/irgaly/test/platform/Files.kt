@@ -141,14 +141,14 @@ actual class Files {
                 val result = nftw(
                     /* __dir = */ path,
                     /* __func = */ staticCFunction { pathName, _, _, _ ->
-                        val path = pathName!!.toKString()
+                        val pathString = pathName!!.toKString()
                         val deleted = RemoveDirectoryW(
-                            lpPathName = path
+                            lpPathName = pathString
                         )
                         if (deleted == TRUE) {
                             TRUE
                         } else {
-                            remove(path)
+                            remove(pathString)
                         }
                     },
                     /* __descriptors = */ 64,

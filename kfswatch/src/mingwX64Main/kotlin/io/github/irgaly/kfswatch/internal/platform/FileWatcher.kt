@@ -2,11 +2,9 @@ package io.github.irgaly.kfswatch.internal.platform
 
 import kotlinx.cinterop.COpaquePointer
 import kotlinx.cinterop.CPointer
-import kotlinx.cinterop.StableRef
 import kotlinx.cinterop.alloc
 import kotlinx.cinterop.allocArray
 import kotlinx.cinterop.allocArrayOf
-import kotlinx.cinterop.asStableRef
 import kotlinx.cinterop.free
 import kotlinx.cinterop.interpretCPointer
 import kotlinx.cinterop.memScoped
@@ -15,16 +13,19 @@ import kotlinx.cinterop.pointed
 import kotlinx.cinterop.ptr
 import kotlinx.cinterop.reinterpret
 import kotlinx.cinterop.sizeOf
-import kotlinx.cinterop.staticCFunction
 import kotlinx.cinterop.toKString
 import kotlinx.cinterop.value
+import kotlinx.coroutines.DelicateCoroutinesApi
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.newSingleThreadContext
 import platform.posix.memcpy
 import platform.windows.CRITICAL_SECTION
 import platform.windows.CancelIo
 import platform.windows.CloseHandle
 import platform.windows.CreateEventW
 import platform.windows.CreateFileW
-import platform.windows.CreateThread
 import platform.windows.DWORDVar
 import platform.windows.DeleteCriticalSection
 import platform.windows.ERROR_OPERATION_ABORTED
@@ -78,21 +79,51 @@ internal actual class FileWatcher actual constructor(
     private val onError: (targetDirectory: String?, message: String) -> Unit,
     private val logger: Logger?
 ) {
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private val dispatcher = newSingleThreadContext("FileWatcher")
     private val criticalSectionPointer: CPointer<CRITICAL_SECTION> by lazy {
         val value = nativeHeap.alloc<CRITICAL_SECTION>()
         InitializeCriticalSection(value.ptr)
         value.ptr
     }
-    private val handles: MutableMap<PlatformPath, HANDLE> = mutableMapOf()
-    private var threadResetHandle: HANDLE? = null
+    private var threadResource: ThreadResource? = null
+    private val targetStatuses: LinkedHashMap<PlatformPath, WatchStatus> = linkedMapOf()
+
+    private data class ThreadResource(
+        val threadResetHandle: HANDLE,
+        var disposing: Boolean
+    )
+
+    private data class WatchStatus(
+        var data: ReadDirectoryData?,
+        var state: WatchState
+    )
+
+    private enum class WatchState {
+        Watching,
+        Adding,
+        Stopping
+    }
+
+    private data class ReadDirectoryData(
+        val directoryHandle: HANDLE,
+        val eventHandle: HANDLE,
+        val overlapped: OVERLAPPED,
+        val buffer: COpaquePointer
+    )
 
     actual fun start(targetDirectories: List<String>) {
         withLock {
-            val handles = mutableMapOf<PlatformPath, HANDLE>()
-            for (targetDirectoryPath in targetDirectories.map { PlatformPath(it) }
-                .subtract(this@FileWatcher.handles.keys)) {
+            var resource = threadResource
+            for (targetDirectoryPath in targetDirectories.map { PlatformPath(it) }.subtract(
+                targetStatuses.filter {
+                    (it.value.state == WatchState.Watching || it.value.state == WatchState.Adding)
+                }.map { it.key }.toSet()
+            )) {
                 val targetDirectory = targetDirectoryPath.originalPath
-                if (FileWatcherMaxTargets <= (this@FileWatcher.handles.size + handles.size)) {
+                if (FileWatcherMaxTargets <= targetStatuses.count {
+                        (it.value.state == WatchState.Watching || it.value.state == WatchState.Adding)
+                    }) {
                     onError(
                         targetDirectory,
                         "too many targets: max = $FileWatcherMaxTargets, cannot start watching $targetDirectory"
@@ -109,54 +140,38 @@ internal actual class FileWatcher actual constructor(
                     onError(targetDirectory, "target is not directory: $targetDirectory")
                     continue
                 }
-                val handle = checkNotNull(CreateFileW(
-                    lpFileName = targetDirectory,
-                    dwDesiredAccess = FILE_LIST_DIRECTORY,
-                    dwShareMode = (FILE_SHARE_READ or FILE_SHARE_WRITE or FILE_SHARE_DELETE).toUInt(),
-                    lpSecurityAttributes = null,
-                    dwCreationDisposition = OPEN_EXISTING,
-                    dwFlagsAndAttributes = (FILE_FLAG_BACKUP_SEMANTICS or FILE_FLAG_OVERLAPPED).toUInt(),
-                    hTemplateFile = null
-                ))
-                if (handle == INVALID_HANDLE_VALUE) {
-                    onError(targetDirectory, "cannot open target: $targetDirectory")
-                    continue
-                }
-                handles[targetDirectoryPath] = handle
-                onStart(targetDirectory)
-            }
-            if (handles.isNotEmpty()) {
-                this@FileWatcher.handles.putAll(handles)
-                if (threadResetHandle != null) {
-                    // 監視対象追加のためのリセット指示
-                    logger?.debug { "send thread reset for adding" }
-                    SetEvent(threadResetHandle)
-                } else {
+                if (resource == null) {
                     // 監視スレッドの状態リセットイベント
-                    threadResetHandle = CreateEventW(
+                    val threadResetHandle = CreateEventW(
                         lpEventAttributes = null,
                         bManualReset = TRUE,
                         bInitialState = FALSE,
                         lpName = null
                     )
-                    // ファイル監視スレッドの起動
-                    val thisRef = StableRef.create(this@FileWatcher)
-                    CreateThread(
-                        lpThreadAttributes = null,
-                        dwStackSize = 0,
-                        lpStartAddress = staticCFunction { data: COpaquePointer? ->
-                            initRuntimeIfNeeded()
-                            checkNotNull(data)
-                            val receivedThisRef = data.asStableRef<FileWatcher>()
-                            receivedThisRef.get().watchingThread()
-                            receivedThisRef.dispose()
-                        }.reinterpret(),
-                        lpParameter = thisRef.asCPointer(),
-                        dwCreationFlags = 0,
-                        lpThreadId = null
-                    ).also {
-                        // Thread Handle は不要であるため Close しておく
-                        CloseHandle(it)
+                    if (threadResetHandle == null) {
+                        val errorCode = GetLastError()
+                        onError(
+                            targetDirectory,
+                            "threadResetHandle CreateEventW failed: error=$errorCode, $targetDirectory"
+                        )
+                        continue
+                    }
+                    resource = ThreadResource(threadResetHandle, false)
+                }
+                targetStatuses[targetDirectoryPath] = WatchStatus(null, WatchState.Adding)
+            }
+            if (resource != null) {
+                if (threadResource != null) {
+                    // スレッドリセットイベント送信
+                    logger?.debug { "send thread reset for adding" }
+                    SetEvent(checkNotNull(threadResource).threadResetHandle)
+                } else {
+                    threadResource = resource
+                    // 監視スレッドの起動
+                    // スレッドの状態を厳密に管理しているため GlobalScope での起動を許容する
+                    @OptIn(DelicateCoroutinesApi::class)
+                    GlobalScope.launch(dispatcher) {
+                        watchingThread()
                     }
                 }
             }
@@ -165,36 +180,57 @@ internal actual class FileWatcher actual constructor(
 
     actual fun stop(targetDirectories: List<String>) {
         withLock {
+            var changed = false
             targetDirectories.forEach { targetDirectory ->
                 val path = PlatformPath(targetDirectory)
-                val originalEntry = handles.entries.firstOrNull { it.key == path }
-                if (originalEntry != null) {
-                    CancelIo(originalEntry.value)
-                    CloseHandle(originalEntry.value)
-                    onStop(originalEntry.key.originalPath)
-                    handles.remove(path)
+                val status = targetStatuses[path]
+                if (status != null) {
+                    when (status.state) {
+                        WatchState.Watching -> {
+                            status.state = WatchState.Stopping
+                            changed = true
+                        }
+
+                        WatchState.Adding -> {
+                            targetStatuses.remove(path)
+                        }
+
+                        WatchState.Stopping -> {}
+                    }
                 }
+            }
+            if (changed) {
+                // スレッドのリセット指示
+                logger?.debug { "send thread reset" }
+                SetEvent(checkNotNull(threadResource).threadResetHandle)
             }
         }
     }
 
     actual fun stopAll() {
         withLock {
-            handles.forEach {
-                CancelIo(it.value)
-                CloseHandle(it.value)
-                onStop(it.key.originalPath)
+            var changed = false
+            targetStatuses.toList().forEach {
+                when (it.second.state) {
+                    WatchState.Watching -> {
+                        it.second.state = WatchState.Stopping
+                        changed = true
+                    }
+
+                    WatchState.Adding -> {
+                        targetStatuses.remove(it.first)
+                    }
+
+                    WatchState.Stopping -> {}
+                }
             }
-            handles.clear()
+            if (changed) {
+                // スレッドのリセット指示
+                logger?.debug { "send thread reset" }
+                SetEvent(checkNotNull(threadResource).threadResetHandle)
+            }
         }
     }
-
-    private data class ReadDirectoryData(
-        val directoryHandle: HANDLE,
-        val eventHandle: HANDLE,
-        val overlapped: OVERLAPPED,
-        val buffer: COpaquePointer
-    )
 
     private fun watchingThread() {
         memScoped {
@@ -204,39 +240,123 @@ internal actual class FileWatcher actual constructor(
             val bufferLength = 1024 * 2
             val bufferSize = (sizeOf<DWORDVar>() * bufferLength).toUInt()
             val bytesReturned = alloc<DWORDVar>()
-            val watchTargets = linkedMapOf<PlatformPath, ReadDirectoryData>()
             val resetTargets = mutableMapOf<PlatformPath, ReadDirectoryData>()
             var threadResetHandle: HANDLE? = null
+            var finishing = false
+            var disposing = false
             while (true) {
+                val watchTargets: LinkedHashMap<PlatformPath, ReadDirectoryData> = linkedMapOf()
                 withLock {
-                    threadResetHandle = this@FileWatcher.threadResetHandle
-                    this@FileWatcher.handles.keys.subtract(watchTargets.keys)
-                        .forEach { targetDirectoryPath ->
-                            val buffer = nativeHeap.allocArray<DWORDVar>(bufferLength)
-                            val overlapped = nativeHeap.alloc<OVERLAPPED>()
-                            val eventHandle = CreateEventW(
-                                lpEventAttributes = null,
-                                bManualReset = TRUE,
-                                bInitialState = FALSE,
-                                lpName = null
-                            ).also {
-                                overlapped.hEvent = it
-                            }
-                            val data = ReadDirectoryData(
-                                checkNotNull(this@FileWatcher.handles[targetDirectoryPath]),
-                                checkNotNull(eventHandle),
-                                overlapped,
-                                buffer
-                            )
-                            watchTargets[targetDirectoryPath] = data
-                            resetTargets[targetDirectoryPath] = data
+                    val resource = checkNotNull(threadResource)
+                    threadResetHandle = resource.threadResetHandle
+                    disposing = resource.disposing
+                    fun stopWatching(targetPath: PlatformPath) {
+                        logger?.debug { "stopWatching CloseHandle: ${targetPath.originalPath}" }
+                        val data = checkNotNull(targetStatuses[targetPath]?.data)
+                        CancelIo(data.directoryHandle)
+                        CloseHandle(data.directoryHandle)
+                        CloseHandle(data.eventHandle)
+                        nativeHeap.free(data.overlapped)
+                        nativeHeap.free(data.buffer)
+                        targetStatuses.remove(targetPath)
+                        resetTargets.remove(targetPath)
+                        onStop(targetPath.originalPath)
+                    }
+                    for (entry in targetStatuses.toList()) {
+                        if (entry.second.state != WatchState.Watching) {
+                            logger?.debug { "status: $entry" }
                         }
+                        val targetPath = entry.first
+                        if (finishing || disposing) {
+                            // 終了処理
+                            when (entry.second.state) {
+                                WatchState.Adding -> {
+                                    targetStatuses.remove(targetPath)
+                                }
+
+                                WatchState.Watching,
+                                WatchState.Stopping -> {
+                                    // 登録解除
+                                    stopWatching(targetPath)
+                                }
+                            }
+                        } else {
+                            when (entry.second.state) {
+                                WatchState.Watching -> {}
+                                WatchState.Adding -> {
+                                    val buffer = nativeHeap.allocArray<DWORDVar>(bufferLength)
+                                    val overlapped = nativeHeap.alloc<OVERLAPPED>()
+                                    val eventHandle = CreateEventW(
+                                        lpEventAttributes = null,
+                                        bManualReset = TRUE,
+                                        bInitialState = FALSE,
+                                        lpName = null
+                                    ).also {
+                                        overlapped.hEvent = it
+                                    }
+                                    if (eventHandle == null) {
+                                        val errorCode = GetLastError()
+                                        onError(
+                                            targetPath.originalPath,
+                                            "CreateEventW failed: error=$errorCode, ${targetPath.originalPath}"
+                                        )
+                                        nativeHeap.free(overlapped)
+                                        nativeHeap.free(buffer)
+                                        targetStatuses.remove(targetPath)
+                                        continue
+                                    }
+                                    val handle = checkNotNull(
+                                        CreateFileW(
+                                            lpFileName = targetPath.originalPath,
+                                            dwDesiredAccess = FILE_LIST_DIRECTORY,
+                                            dwShareMode = (FILE_SHARE_READ or FILE_SHARE_WRITE or FILE_SHARE_DELETE).toUInt(),
+                                            lpSecurityAttributes = null,
+                                            dwCreationDisposition = OPEN_EXISTING,
+                                            dwFlagsAndAttributes = (FILE_FLAG_BACKUP_SEMANTICS or FILE_FLAG_OVERLAPPED).toUInt(),
+                                            hTemplateFile = null
+                                        )
+                                    )
+                                    if (handle == INVALID_HANDLE_VALUE) {
+                                        val errorCode = GetLastError()
+                                        onError(
+                                            targetPath.originalPath,
+                                            "cannot open target: error=$errorCode, ${targetPath.originalPath}"
+                                        )
+                                        CloseHandle(eventHandle)
+                                        nativeHeap.free(overlapped)
+                                        nativeHeap.free(buffer)
+                                        targetStatuses.remove(targetPath)
+                                        continue
+                                    }
+                                    val data = ReadDirectoryData(
+                                        handle,
+                                        eventHandle,
+                                        overlapped,
+                                        buffer
+                                    )
+                                    entry.second.apply {
+                                        this.data = data
+                                        state = WatchState.Watching
+                                    }
+                                    resetTargets[entry.first] = data
+                                    onStart(targetPath.originalPath)
+                                }
+
+                                WatchState.Stopping -> {
+                                    // 登録解除
+                                    stopWatching(targetPath)
+                                }
+                            }
+                        }
+                    }
                     resetTargets.forEach { entry ->
-                        ResetEvent(entry.value.eventHandle)
-                        logger?.debug { "ReadDirectoryChangesW: ${entry.key.originalPath}" }
+                        val targetDirectory = entry.key.originalPath
+                        val data = checkNotNull(entry.value)
+                        ResetEvent(data.eventHandle)
+                        logger?.debug { "ReadDirectoryChangesW: $targetDirectory" }
                         val watchResult = ReadDirectoryChangesW(
-                            hDirectory = entry.value.directoryHandle,
-                            lpBuffer = entry.value.buffer,
+                            hDirectory = data.directoryHandle,
+                            lpBuffer = data.buffer,
                             nBufferLength = bufferSize,
                             bWatchSubtree = FALSE,
                             // 対象のディレクトリの子要素のどのイベントを受け取るか
@@ -249,8 +369,9 @@ internal actual class FileWatcher actual constructor(
                                             FILE_NOTIFY_CHANGE_LAST_WRITE
                                     ).toUInt(),
                             lpBytesReturned = null,
-                            lpOverlapped = entry.value.overlapped.ptr,
-                            lpCompletionRoutine = null)
+                            lpOverlapped = data.overlapped.ptr,
+                            lpCompletionRoutine = null
+                        )
                         if (watchResult == FALSE) {
                             val errorCode = GetLastError()
                             when (errorCode.toInt()) {
@@ -262,36 +383,36 @@ internal actual class FileWatcher actual constructor(
                                 else -> {
                                     // その他のエラー
                                     onError(
-                                        entry.key.originalPath,
-                                        "ReadDirectoryChangesW failed: $${entry.key}"
+                                        targetDirectory,
+                                        "ReadDirectoryChangesW failed: $targetDirectory"
                                     )
-                                    CloseHandle(entry.value.directoryHandle)
                                 }
                             }
-                            nativeHeap.free(entry.value.buffer)
-                            nativeHeap.free(entry.value.overlapped)
-                            CloseHandle(entry.value.eventHandle)
                             // 監視停止したものを削除
-                            this@FileWatcher.handles.remove(entry.key)
-                            watchTargets.remove(entry.key)
+                            stopWatching(entry.key)
                         }
                     }
-                    if (watchTargets.isEmpty()) {
-                        // 監視対象なし、スレッド終了
-                        CloseHandle(threadResetHandle)
-                        threadResetHandle = null
+                    resetTargets.clear()
+                    targetStatuses.map {
+                        it.key to checkNotNull(it.value.data)
+                    }.toMap(watchTargets)
+                    if (targetStatuses.isEmpty()) {
+                        // スレッド終了処理
+                        CloseHandle(resource.threadResetHandle)
+                        logger?.debug { "threadResetHandle closed" }
+                        threadResource = null
                     }
                 }
                 if (watchTargets.isEmpty()) {
                     // スレッド終了
                     break
                 }
-                resetTargets.clear()
                 val waitResult = memScoped {
                     val eventHandlesPointer = allocArrayOf(
                         listOf(checkNotNull(threadResetHandle))
                                 + watchTargets.values.map { it.eventHandle }
                     )
+                    // イベント発生まで待機
                     WaitForMultipleObjects(
                         nCount = (watchTargets.size + 1).toUInt(),
                         lpHandles = eventHandlesPointer,
@@ -369,47 +490,54 @@ internal actual class FileWatcher actual constructor(
                     }
                 } else {
                     // シグナル監視エラー
+                    // スレッドを終了させる
+                    finishing = true
+                    val errorCode = GetLastError()
+                    onError(null, "WaitForMultipleObjects error: $errorCode")
+                    logger?.error { "WaitForMultipleObjects error: $errorCode" }
                     continue
                 }
             }
             logger?.debug { "watchingThread() finished" }
+            if (disposing) {
+                dispose()
+            }
         }
     }
 
     actual fun close() {
         logger?.debug { "close()" }
-        val thisRef = StableRef.create(this)
-        CreateThread(
-            lpThreadAttributes = null,
-            dwStackSize = 0,
-            lpStartAddress = staticCFunction { data: COpaquePointer? ->
-                initRuntimeIfNeeded()
-                checkNotNull(data)
-                val receivedThisRef = data.asStableRef<FileWatcher>()
-                receivedThisRef.get().closeThread()
-                receivedThisRef.dispose()
-            }.reinterpret(),
-            lpParameter = thisRef.asCPointer(),
-            dwCreationFlags = 0,
-            lpThreadId = null
-        ).also {
-            CloseHandle(it)
+        @OptIn(DelicateCoroutinesApi::class)
+        GlobalScope.launch {
+            val hasThread = withLock {
+                val resource = threadResource
+                if (resource != null) {
+                    resource.disposing = true
+                    true
+                } else false
+            }
+            if (hasThread) {
+                stopAll()
+            } else {
+                dispose()
+            }
         }
     }
 
-    private fun closeThread() {
-        stopAll()
-        DeleteCriticalSection(criticalSectionPointer)
-        nativeHeap.free(criticalSectionPointer)
-    }
-
-    private fun withLock(block: () -> Unit) {
-        try {
+    private fun <U> withLock(block: () -> U): U {
+        return try {
             EnterCriticalSection(criticalSectionPointer)
             block()
         } finally {
             LeaveCriticalSection(criticalSectionPointer)
         }
+    }
+
+    private fun dispose() {
+        logger?.debug { "dispose()" }
+        DeleteCriticalSection(criticalSectionPointer)
+        nativeHeap.free(criticalSectionPointer)
+        dispatcher.close()
     }
 
     private fun String.unixPath(): String {
