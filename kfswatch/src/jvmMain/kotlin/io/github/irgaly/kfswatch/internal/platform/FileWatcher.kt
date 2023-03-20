@@ -144,6 +144,10 @@ internal actual class FileWatcher actual constructor(
                             // 例外による監視終了処理
                             this.watchService?.close()
                             this.watchService = null
+                            keys.forEach {
+                                onStop(it.key.originalPath)
+                            }
+                            keys.clear()
                         }
                     }
                 }
