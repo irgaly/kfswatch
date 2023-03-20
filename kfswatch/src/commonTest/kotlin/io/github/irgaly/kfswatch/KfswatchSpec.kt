@@ -127,13 +127,17 @@ class KfswatchSpec : DescribeFunSpec({
                 }
                 Files.writeFile("$directory/child3", "")
                 awaitEvent(KfsEvent.Create, "child3")
+                if (Platform.isWindows) {
+                    // Windows では空のファイル作成でも Modify イベントが発生する
+                    awaitEvent(KfsEvent.Modify, "child3")
+                }
                 Files.writeFile("$directory/child2", "test2")
                 awaitEvent(KfsEvent.Modify, "child2")
                 Files.deleteRecursively("$directory/child1")
                 awaitEvent(KfsEvent.Delete, "child1")
                 Files.deleteRecursively("$directory/child2")
-                if (Platform.isJvmWindows || Platform.isWindows) {
-                    // Windows ではファイル削除で Modify, Delete が発生する
+                if (Platform.isJvmWindows) {
+                    // JVM on Windows ではファイル削除で Modify, Delete が発生する
                     awaitEvents(
                         Event(KfsEvent.Modify, "child2"),
                         Event(KfsEvent.Delete, "child2")

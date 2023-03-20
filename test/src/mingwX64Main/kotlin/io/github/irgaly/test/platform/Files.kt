@@ -37,6 +37,7 @@ import platform.windows.RemoveDirectoryW
 import platform.windows.RpcStringFreeW
 import platform.windows.SetEndOfFile
 import platform.windows.TCHARVar
+import platform.windows.TRUE
 import platform.windows.UUID
 import platform.windows.UuidCreate
 import platform.windows.UuidToStringW
@@ -65,9 +66,9 @@ actual class Files {
                 } finally {
                     RpcStringFreeW(String = rpcString.ptr)
                 }
-                val directory = "$tempPath/$uuidString"
+                val directory = "$tempPath$uuidString"
                 CreateDirectoryW(
-                    lpPathName = "$tempPath/$uuidString",
+                    lpPathName = directory,
                     lpSecurityAttributes = null
                 )
                 directory
@@ -138,12 +139,20 @@ actual class Files {
         actual suspend fun deleteRecursively(path: String): Boolean =
             withContext(Dispatchers.Default) {
                 val result = nftw(
-                    path,
-                    staticCFunction { pathName, _, _, _ ->
-                        remove(pathName!!.toKString())
+                    /* __dir = */ path,
+                    /* __func = */ staticCFunction { pathName, _, _, _ ->
+                        val path = pathName!!.toKString()
+                        val deleted = RemoveDirectoryW(
+                            lpPathName = path
+                        )
+                        if (deleted == TRUE) {
+                            TRUE
+                        } else {
+                            remove(path)
+                        }
                     },
-                    64,
-                    FTW_DEPTH or FTW_PHYS
+                    /* __descriptors = */ 64,
+                    /* __flag = */ FTW_DEPTH or FTW_PHYS
                 )
                 (result != -1)
             }

@@ -87,12 +87,12 @@ actual class Files {
         actual suspend fun deleteRecursively(path: String): Boolean =
             withContext(Dispatchers.Default) {
                 val ret = nftw(
-                    path,
-                    staticCFunction { pathName, _, _, _ ->
+                    __dir = path,
+                    __func = staticCFunction { pathName, _, _, _ ->
                         remove(checkNotNull(pathName).toKString())
                     },
-                    64,
-                    FTW_DEPTH or FTW_PHYS
+                    __descriptors = 64,
+                    __flag = FTW_DEPTH or FTW_PHYS
                 )
                 (ret != -1)
             }

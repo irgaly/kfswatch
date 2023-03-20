@@ -129,6 +129,7 @@ internal actual class FileWatcher actual constructor(
                 this@FileWatcher.handles.putAll(handles)
                 if (threadResetHandle != null) {
                     // 監視対象追加のためのリセット指示
+                    logger?.debug { "send thread reset for adding" }
                     SetEvent(threadResetHandle)
                 } else {
                     // 監視スレッドの状態リセットイベント
@@ -197,6 +198,7 @@ internal actual class FileWatcher actual constructor(
 
     private fun watchingThread() {
         memScoped {
+            logger?.debug { "watchingThread() start" }
             // DWORD = 32 bits = 4 bytes
             // DWORD * (1024 * 2 length) = 4 * 1024 * 2 = 8 KB
             val bufferLength = 1024 * 2
@@ -231,6 +233,7 @@ internal actual class FileWatcher actual constructor(
                         }
                     resetTargets.forEach { entry ->
                         ResetEvent(entry.value.eventHandle)
+                        logger?.debug { "ReadDirectoryChangesW: ${entry.key.originalPath}" }
                         val watchResult = ReadDirectoryChangesW(
                             hDirectory = entry.value.directoryHandle,
                             lpBuffer = entry.value.buffer,
@@ -255,6 +258,7 @@ internal actual class FileWatcher actual constructor(
                                     // CloseHandle() により監視終了
                                     // no operation
                                 }
+
                                 else -> {
                                     // その他のエラー
                                     onError(
@@ -286,7 +290,7 @@ internal actual class FileWatcher actual constructor(
                 val waitResult = memScoped {
                     val eventHandlesPointer = allocArrayOf(
                         listOf(checkNotNull(threadResetHandle))
-                        + watchTargets.values.map { it.eventHandle }
+                                + watchTargets.values.map { it.eventHandle }
                     )
                     WaitForMultipleObjects(
                         nCount = (watchTargets.size + 1).toUInt(),
@@ -299,6 +303,7 @@ internal actual class FileWatcher actual constructor(
                     if (waitResult == WAIT_OBJECT_0) {
                         // threadResetEvent
                         // 次のループへ進み、追加 handles を処理する
+                        logger?.debug { "threadReset Event received" }
                         ResetEvent(threadResetHandle)
                     } else {
                         val index = (waitResult - WAIT_OBJECT_0 - 1U).toInt()
@@ -315,30 +320,26 @@ internal actual class FileWatcher actual constructor(
                             // buffer に情報が収まらなかったとき
                             onError(
                                 target.key.originalPath,
-                                "ReadDirectoryChangesW buffer overflow: ${target.key}"
+                                "ReadDirectoryChangesW buffer overflow: ${target.key.originalPath}"
                             )
+                            logger?.debug { "ReadDirectoryChangesW buffer overflow: ${target.key.originalPath}\"" }
                         } else {
                             var infoPointer = target.value.buffer.reinterpret<FILE_NOTIFY_INFORMATION>()
                             while(true) {
                                 val info = infoPointer.pointed
-                                val path = memScoped {
-                                    allocArray<WCHARVar>(
-                                        // NULL 終端文字列の + 1
-                                        info.FileNameLength.toInt() + 1
-                                    ).also {
-                                        memcpy(it, info.FileName, info.FileNameLength.toULong())
-                                    }.toKString()
-                                }.unixPath()
+                                val path = info.fileName().unixPath()
+                                logger?.debug { "FILE_NOTIFY_INFORMATION event: ${info.toDebugString()}" }
                                 // 監視対象とその子のイベントを検出
                                 when (info.Action.toInt()) {
                                     FILE_ACTION_ADDED,
-                                    FILE_ACTION_RENAMED_NEW_NAME-> {
+                                    FILE_ACTION_RENAMED_NEW_NAME -> {
                                         onEvent(
                                             target.key.originalPath,
                                             path,
                                             FileWatcherEvent.Create
                                         )
                                     }
+
                                     FILE_ACTION_REMOVED,
                                     FILE_ACTION_RENAMED_OLD_NAME-> {
                                         onEvent(
@@ -347,6 +348,7 @@ internal actual class FileWatcher actual constructor(
                                             FileWatcherEvent.Delete
                                         )
                                     }
+
                                     FILE_ACTION_MODIFIED -> {
                                         onEvent(
                                             target.key.originalPath,
@@ -370,10 +372,12 @@ internal actual class FileWatcher actual constructor(
                     continue
                 }
             }
+            logger?.debug { "watchingThread() finished" }
         }
     }
 
     actual fun close() {
+        logger?.debug { "close()" }
         val thisRef = StableRef.create(this)
         CreateThread(
             lpThreadAttributes = null,
@@ -410,5 +414,30 @@ internal actual class FileWatcher actual constructor(
 
     private fun String.unixPath(): String {
         return replace("\\", "/")
+    }
+
+    private fun FILE_NOTIFY_INFORMATION.toDebugString(): String {
+        val actionString = mapOf(
+            FILE_ACTION_ADDED to "FILE_ACTION_ADDED", // The file was added to the directory.
+            FILE_ACTION_REMOVED to "FILE_ACTION_REMOVED", // The file was removed from the directory.
+            FILE_ACTION_MODIFIED to "FILE_ACTION_MODIFIED", // The file was modified.
+            FILE_ACTION_RENAMED_OLD_NAME to "FILE_ACTION_RENAMED_OLD_NAME", // The file was renamed and this is the old name.
+            FILE_ACTION_RENAMED_NEW_NAME to "FILE_ACTION_RENAMED_NEW_NAME" // The file was renamed and this is the new name.
+        )[Action.toInt()]?.let {
+            "${it}:0x${Action.toString(16)}"
+        } ?: "unknown"
+        val fileName = fileName()
+        return "{Action=0x${Action.toString(16)}($actionString), FileName=${fileName}}"
+    }
+
+    private fun FILE_NOTIFY_INFORMATION.fileName(): String {
+        return memScoped {
+            allocArray<WCHARVar>(
+                // NULL 終端文字列の + 1
+                FileNameLength.toInt() + 1
+            ).also {
+                memcpy(it, FileName, FileNameLength.toULong())
+            }.toKString()
+        }
     }
 }
