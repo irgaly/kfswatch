@@ -428,6 +428,11 @@ internal actual class FileWatcher actual constructor(
                                     if ((mask and IN_MODIFY) == IN_MODIFY) {
                                         onEvent(targetDirectory, path, FileWatcherEvent.Modify)
                                     }
+                                    if ((mask and IN_IGNORED) == IN_IGNORED) {
+                                        // 監視対象が削除され inotify が停止した
+                                        // 監視停止処理を実行する
+                                        stop(listOf(targetDirectory))
+                                    }
                                 }
                                 offset += (sizeOf<inotify_event>() + info.len.toLong())
                             }
