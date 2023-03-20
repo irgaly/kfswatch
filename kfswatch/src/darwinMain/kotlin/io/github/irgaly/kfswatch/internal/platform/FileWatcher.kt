@@ -332,7 +332,9 @@ internal actual class FileWatcher actual constructor(
                         onStop(targetDirectory)
                     }
                     for(entry in targetStatuses.toList()) {
-                        logger?.debug { "status: $entry" }
+                        if (entry.second.state != WatchState.Watching) {
+                            logger?.debug { "status: $entry" }
+                        }
                         val targetDirectory = entry.first
                         if (finishing) {
                             logger?.debug { "finishing" }
@@ -410,7 +412,7 @@ internal actual class FileWatcher actual constructor(
                         }
                     }
                     descriptorsToTargetDirectory = targetStatuses.entries.associate {
-                        checkNotNull(it.value.descriptor)  to it.key
+                        checkNotNull(it.value.descriptor) to it.key
                     }
                     descriptorsToWatchInfo = watchInfo.values.flatMap { info ->
                         info.childDescriptors.values.map {
@@ -531,6 +533,7 @@ internal actual class FileWatcher actual constructor(
     }
 
     actual fun close() {
+        logger?.debug { "close()" }
         dispatch_async(
             queue = dispatch_get_global_queue(
                 identifier = DISPATCH_QUEUE_PRIORITY_DEFAULT.convert(),

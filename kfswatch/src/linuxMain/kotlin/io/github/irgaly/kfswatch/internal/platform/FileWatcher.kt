@@ -85,7 +85,7 @@ internal actual class FileWatcher actual constructor(
         value.ptr
     }
     private var threadResource: ThreadResource? = null
-    private val watchDescriptors: MutableMap<String, Int> = mutableMapOf()
+    private val targetStatuses: MutableMap<String, WatchStatus> = mutableMapOf()
 
     private data class ThreadResource(
         val inotifyFileDescriptor: Int,
@@ -93,12 +93,32 @@ internal actual class FileWatcher actual constructor(
         var disposing: Boolean
     )
 
+    private data class WatchStatus(
+        var watchDescriptor: Int?,
+        var state: WatchState
+    )
+
+    private enum class WatchState {
+        Watching,
+        Adding,
+        Stopping
+    }
+
     actual fun start(targetDirectories: List<String>) {
         withLock {
             var resource = threadResource
-            for(targetDirectory in targetDirectories.subtract(watchDescriptors.keys)) {
-                if (FileWatcherMaxTargets <= watchDescriptors.size) {
-                    onError(targetDirectory, "too many targets: max = $FileWatcherMaxTargets, cannot start watching $targetDirectory")
+            for (targetDirectory in targetDirectories.subtract(
+                targetStatuses.filter {
+                    (it.value.state == WatchState.Watching || it.value.state == WatchState.Adding)
+                }.map { it.key }.toSet()
+            )) {
+                if (FileWatcherMaxTargets <= targetStatuses.count {
+                        (it.value.state == WatchState.Watching || it.value.state == WatchState.Adding)
+                    }) {
+                    onError(
+                        targetDirectory,
+                        "too many targets: max = $FileWatcherMaxTargets, cannot start watching $targetDirectory"
+                    )
                     continue
                 }
                 val (exists, isDirectory) = memScoped {
@@ -142,39 +162,34 @@ internal actual class FileWatcher actual constructor(
                         close(__fd = inotifyFileDescriptor)
                         continue
                     }
+                    logger?.debug {
+                        "pipe opened: descriptors[${threadResetPipeDescriptors.first} - ${threadResetPipeDescriptors.second}]"
+                    }
                     resource = ThreadResource(
                         inotifyFileDescriptor,
                         threadResetPipeDescriptors,
                         false
                     )
                 }
-                logger?.debug { "inotify_add_watch: $targetDirectory" }
-                val watchDescriptor = inotify_add_watch(
-                    __fd = resource.inotifyFileDescriptor,
-                    __name = targetDirectory,
-                    __mask = (
-                            IN_CREATE
-                                    or IN_DELETE
-                                    or IN_MODIFY
-                                    or IN_MOVED_FROM
-                                    or IN_MOVED_TO
-                            ).toUInt()
-                )
-                if (watchDescriptor == -1) {
-                    val error = checkNotNull(strerror(errno)).toKString()
-                    onError(targetDirectory, "inotify_add_watch() error: $error")
-                    continue
-                }
-                watchDescriptors[targetDirectory] = watchDescriptor
-                onStart(targetDirectory)
+                targetStatuses[targetDirectory] = WatchStatus(null, WatchState.Adding)
             }
-            if (threadResource == null && resource != null) {
-                threadResource = resource
-                // inotify 監視スレッドの起動
-                // スレッドの状態を厳密に管理しているため GlobalScope での起動を許容する
-                @OptIn(DelicateCoroutinesApi::class)
-                GlobalScope.launch(dispatcher) {
-                    watchingThread()
+            if (resource != null) {
+                if (threadResource != null) {
+                    // スレッドリセットイベント送信
+                    logger?.debug { "send thread reset for adding" }
+                    write(
+                        __fd = checkNotNull(threadResource).threadResetPipeDescriptors.second,
+                        __buf = cValuesOf(0.toByte()),
+                        __n = 1
+                    )
+                } else {
+                    threadResource = resource
+                    // inotify 監視スレッドの起動
+                    // スレッドの状態を厳密に管理しているため GlobalScope での起動を許容する
+                    @OptIn(DelicateCoroutinesApi::class)
+                    GlobalScope.launch(dispatcher) {
+                        watchingThread()
+                    }
                 }
             }
         }
@@ -182,50 +197,58 @@ internal actual class FileWatcher actual constructor(
 
     actual fun stop(targetDirectories: List<String>) {
         withLock {
+            var changed = false
             targetDirectories.forEach { targetDirectory ->
-                val watchDescriptor = watchDescriptors[targetDirectory]
-                if (watchDescriptor != null) {
-                    val fileDescriptor = checkNotNull(threadResource).inotifyFileDescriptor
-                    logger?.debug {
-                        "inotify_rm_watch: descriptor=$fileDescriptor"
+                val status = targetStatuses[targetDirectory]
+                if (status != null) {
+                    when (status.state) {
+                        WatchState.Watching -> {
+                            status.state = WatchState.Stopping
+                            changed = true
+                        }
+
+                        WatchState.Adding -> {
+                            targetStatuses.remove(targetDirectory)
+                        }
+
+                        WatchState.Stopping -> {}
                     }
-                    inotify_rm_watch(
-                        __fd = fileDescriptor,
-                        __wd = watchDescriptor
-                    )
-                    onStop(targetDirectory)
-                    watchDescriptors.remove(targetDirectory)
                 }
             }
-            if (watchDescriptors.isEmpty()) {
-                threadResource?.threadResetPipeDescriptors?.second?.let {
-                    // スレッドのリセット指示
-                    logger?.debug { "send thread reset" }
-                    write(
-                        __fd = it,
-                        __buf = cValuesOf(0.toByte()),
-                        __n = 1
-                    )
-                }
+            if (changed) {
+                // スレッドのリセット指示
+                logger?.debug { "send thread reset" }
+                write(
+                    __fd = checkNotNull(threadResource).threadResetPipeDescriptors.second,
+                    __buf = cValuesOf(0.toByte()),
+                    __n = 1
+                )
             }
         }
     }
 
     actual fun stopAll() {
         withLock {
-            watchDescriptors.forEach {
-                inotify_rm_watch(
-                    __fd = checkNotNull(threadResource).inotifyFileDescriptor,
-                    __wd = it.value
-                )
-                onStop(it.key)
+            var changed = false
+            targetStatuses.toList().forEach {
+                when (it.second.state) {
+                    WatchState.Watching -> {
+                        it.second.state = WatchState.Stopping
+                        changed = true
+                    }
+
+                    WatchState.Adding -> {
+                        targetStatuses.remove(it.first)
+                    }
+
+                    WatchState.Stopping -> {}
+                }
             }
-            watchDescriptors.clear()
-            threadResource?.threadResetPipeDescriptors?.second?.let {
+            if (changed) {
                 // スレッドのリセット指示
                 logger?.debug { "send thread reset" }
                 write(
-                    __fd = it,
+                    __fd = checkNotNull(threadResource).threadResetPipeDescriptors.second,
                     __buf = cValuesOf(0.toByte()),
                     __n = 1
                 )
@@ -242,22 +265,94 @@ internal actual class FileWatcher actual constructor(
             pollDescriptors[1].events = POLLIN.toShort()
             val bufferSize = (sizeOf<inotify_event>() + NAME_MAX + 1)
             val buffer = alloc(size = bufferSize, align = alignOf<inotify_event>())
-                     .reinterpret<inotify_event>().ptr
-            var watchDirectories: Map<Int, String> = emptyMap()
+                .reinterpret<inotify_event>().ptr
+            var finishing = false
             var disposing = false
             while (true) {
+                var descriptorsToTargetDirectory: Map<Int, String> = emptyMap()
                 val finish = withLock {
                     val resource = checkNotNull(threadResource)
                     pollDescriptors[0].fd = resource.threadResetPipeDescriptors.first
                     pollDescriptors[1].fd = resource.inotifyFileDescriptor
-                    watchDirectories =
-                        watchDescriptors.entries.associate { (key, value) -> value to key }
                     disposing = resource.disposing
-                    if (watchDescriptors.isEmpty()) {
+                    fun stopWatching(targetDirectory: String) {
+                        logger?.debug { "inotify_rm_watch: $targetDirectory" }
+                        inotify_rm_watch(
+                            __fd = resource.inotifyFileDescriptor,
+                            __wd = checkNotNull(targetStatuses[targetDirectory]?.watchDescriptor)
+                        )
+                        targetStatuses.remove(targetDirectory)
+                        onStop(targetDirectory)
+                    }
+                    for (entry in targetStatuses.toList()) {
+                        if (entry.second.state != WatchState.Watching) {
+                            logger?.debug { "status: $entry" }
+                        }
+                        val targetDirectory = entry.first
+                        if (finishing || disposing) {
+                            // 終了処理
+                            when (entry.second.state) {
+                                WatchState.Adding -> {
+                                    targetStatuses.remove(targetDirectory)
+                                }
+
+                                WatchState.Watching,
+                                WatchState.Stopping -> {
+                                    // 登録解除
+                                    stopWatching(targetDirectory)
+                                }
+                            }
+                        } else {
+                            when (entry.second.state) {
+                                WatchState.Watching -> {}
+                                WatchState.Adding -> {
+                                    logger?.debug { "inotify_add_watch: $targetDirectory" }
+                                    val descriptor = inotify_add_watch(
+                                        __fd = resource.inotifyFileDescriptor,
+                                        __name = targetDirectory,
+                                        __mask = (
+                                                IN_CREATE
+                                                        or IN_DELETE
+                                                        or IN_MODIFY
+                                                        or IN_MOVED_FROM
+                                                        or IN_MOVED_TO
+                                                ).toUInt()
+                                    )
+                                    if (descriptor == -1) {
+                                        val error = checkNotNull(strerror(errno)).toKString()
+                                        onError(
+                                            targetDirectory,
+                                            "inotify_add_watch() error: $error"
+                                        )
+                                        targetStatuses.remove(targetDirectory)
+                                        continue
+                                    }
+                                    entry.second.apply {
+                                        watchDescriptor = descriptor
+                                        state = WatchState.Watching
+                                    }
+                                    onStart(targetDirectory)
+                                }
+
+                                WatchState.Stopping -> {
+                                    // 登録解除
+                                    stopWatching(targetDirectory)
+                                }
+                            }
+                        }
+                    }
+                    descriptorsToTargetDirectory = targetStatuses.entries.associate {
+                        checkNotNull(it.value.watchDescriptor) to it.key
+                    }
+                    if (targetStatuses.isEmpty()) {
                         // スレッド終了処理
                         close(__fd = resource.threadResetPipeDescriptors.first)
                         close(__fd = resource.threadResetPipeDescriptors.second)
                         close(__fd = resource.inotifyFileDescriptor)
+                        logger?.debug {
+                            "pipe closed: [${resource.threadResetPipeDescriptors.first} - ${resource.threadResetPipeDescriptors.second}]"
+                        }
+                        logger?.debug { "inotify descriptor closed" }
                         threadResource = null
                         true
                     } else false
@@ -274,7 +369,7 @@ internal actual class FileWatcher actual constructor(
                 )
                 if (0 < pollResult) {
                     if ((pollDescriptors[0].revents.toInt() and POLLIN) != 0) {
-                        logger?.debug { "kevent: threadResetPipeDescriptor received" }
+                        logger?.debug { "poll: threadResetPipeDescriptor received" }
                         // スレッドリセット
                         // threadResetPipeDescriptor を 1 bytes 読み捨て、処理を継続
                         read(
@@ -290,12 +385,18 @@ internal actual class FileWatcher actual constructor(
                                 EAGAIN -> {
                                     // 一時的な読み取り不可
                                     // no operation
+                                    logger?.debug { "inotify EAGAIN" }
                                 }
                                 else -> {
+                                    // イベント監視エラー
+                                    // スレッドを終了させる
+                                    finishing = true
+                                    val error = checkNotNull(strerror(errorCode)).toKString()
+                                    onError(null, "inotify read error: $error")
                                     logger?.error {
-                                        val error = checkNotNull(strerror(errorCode)).toKString()
                                         "read inotify fileDescriptor error: $error"
                                     }
+                                    continue
                                 }
                             }
                         } else {
@@ -308,24 +409,27 @@ internal actual class FileWatcher actual constructor(
                                     )
                                 )
                                 val info = infoPointer.pointed
-                                val targetDirectory = checkNotNull(watchDirectories[info.wd])
+                                logger?.debug { "inotify event: ${info.toDebugString()}" }
+                                val targetDirectory = descriptorsToTargetDirectory[info.wd]
                                 val path = info.name.toKString()
                                 val mask = info.mask.toInt()
-                                logger?.debug { "inotify event: $targetDirectory, ${info.toDebugString()}" }
-                                if (((mask and IN_CREATE) == IN_CREATE) ||
-                                    ((mask and IN_MOVED_TO) == IN_MOVED_TO)
-                                ) {
-                                    onEvent(targetDirectory, path, FileWatcherEvent.Create)
+                                if (targetDirectory != null) {
+                                    logger?.debug { "inotify event: -> targetDirectory=$targetDirectory" }
+                                    if (((mask and IN_CREATE) == IN_CREATE) ||
+                                        ((mask and IN_MOVED_TO) == IN_MOVED_TO)
+                                    ) {
+                                        onEvent(targetDirectory, path, FileWatcherEvent.Create)
+                                    }
+                                    if (((mask and IN_DELETE) == IN_DELETE) ||
+                                        ((mask and IN_MOVED_FROM) == IN_MOVED_FROM)
+                                    ) {
+                                        onEvent(targetDirectory, path, FileWatcherEvent.Delete)
+                                    }
+                                    if ((mask and IN_MODIFY) == IN_MODIFY) {
+                                        onEvent(targetDirectory, path, FileWatcherEvent.Modify)
+                                    }
                                 }
-                                if (((mask and IN_DELETE) == IN_DELETE) ||
-                                    ((mask and IN_MOVED_FROM) == IN_MOVED_FROM)
-                                ) {
-                                    onEvent(targetDirectory, path, FileWatcherEvent.Delete)
-                                }
-                                if ((mask and IN_MODIFY) == IN_MODIFY) {
-                                    onEvent(targetDirectory, path, FileWatcherEvent.Modify)
-                                }
-                                offset += sizeOf<inotify_event>() + info.len.toLong()
+                                offset += (sizeOf<inotify_event>() + info.len.toLong())
                             }
                         }
                     }
@@ -339,8 +443,9 @@ internal actual class FileWatcher actual constructor(
     }
 
     actual fun close() {
+        logger?.debug { "close()" }
         // close() は非ブロッキング実装
-        // リソース解放のためなので GlobalScope を使う
+        // リソース解放のために GlobalScope を許容
         @OptIn(DelicateCoroutinesApi::class)
         GlobalScope.launch {
             val hasThread = withLock {
