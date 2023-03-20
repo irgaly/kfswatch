@@ -338,16 +338,10 @@ class KfswatchSpec : DescribeFunSpec({
                         )
                     }
 
-                    (Platform.isJvmLinux
-                            || Platform.isJvmWindows
-                            || Platform.isMacos
-                            || Platform.isIos
-                            || Platform.isWindows) -> {
-                        // JVM on Linux, JVM on Windows, macOS, iOS, Windows
-                        // では file2 の Delete が発生する
+                    (Platform.isLinux || Platform.isAndroid) -> {
+                        // Linux, Android では Delete - Create で通知される
                         awaitEvents(
                             Event(KfsEvent.Delete, "file1"),
-                            Event(KfsEvent.Delete, "file2"),
                             Event(KfsEvent.Create, "file2")
                         )
                     }
@@ -355,6 +349,7 @@ class KfswatchSpec : DescribeFunSpec({
                     else -> {
                         awaitEvents(
                             Event(KfsEvent.Delete, "file1"),
+                            Event(KfsEvent.Delete, "file2"),
                             Event(KfsEvent.Create, "file2")
                         )
                     }
@@ -394,22 +389,6 @@ class KfswatchSpec : DescribeFunSpec({
                             it?.path shouldBe "directory1"
                         }
                         cancelAndIgnoreRemainingEvents()
-                    }
-
-                    (Platform.isJvmLinux
-                            || Platform.isJvmWindows
-                            || Platform.isNodejsWindows
-                            || Platform.isMacos
-                            || Platform.isIos
-                            || Platform.isWindows) -> {
-                        // JVM on Linux, JVM on Windows, Nodejs on Windows
-                        // macOS, iOS, Windows
-                        // では directory2 の Delete が発生する
-                        awaitEvents(
-                            Event(KfsEvent.Delete, "directory1"),
-                            Event(KfsEvent.Delete, "directory2"),
-                            Event(KfsEvent.Create, "directory2")
-                        )
                     }
 
                     Platform.isNodejsLinux -> {
@@ -458,9 +437,18 @@ class KfswatchSpec : DescribeFunSpec({
                         )
                     }
 
+                    (Platform.isLinux || Platform.isAndroid) -> {
+                        // Linux, Android では Delete - Create が発生する
+                        awaitEvents(
+                            Event(KfsEvent.Delete, "directory1"),
+                            Event(KfsEvent.Create, "directory2")
+                        )
+                    }
+
                     else -> {
                         awaitEvents(
                             Event(KfsEvent.Delete, "directory1"),
+                            Event(KfsEvent.Delete, "directory2"),
                             Event(KfsEvent.Create, "directory2")
                         )
                     }
