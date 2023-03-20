@@ -25,7 +25,10 @@ internal actual class Files {
                         }
                     }
                     if (parentExists) {
-                        (mkdir(directoryPath, 755) == 0)
+                        (mkdir(
+                            __path = directoryPath,
+                            __mode = 0b111101101 /* 0755 */
+                        ) == 0)
                     } else false
                 }
             }

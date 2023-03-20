@@ -29,17 +29,25 @@ actual class Files {
         }
 
         actual fun createTemporaryDirectorySync(): String {
-            val tempDirectory =
-                sequenceOf("TMPDIR", "TMP", "TEMP", "TEMPDIR").firstNotNullOfOrNull {
-                    getenv(it)?.toKString()
-                } ?: "/tmp"
-            val directory = mkdtemp("$tempDirectory/tmpdir.XXXXXX".cstr)?.toKString()
-            return checkNotNull(directory)
+            return memScoped {
+                val tempDirectory =
+                    sequenceOf("TMPDIR", "TMP", "TEMP", "TEMPDIR").firstNotNullOfOrNull {
+                        getenv(it)?.toKString()
+                    } ?: "/tmp"
+                // mkdtemp は引数の文字列を直接書き換えるため memScoped + .ptr により
+                // nativeHeap へ配置する
+                val template = "$tempDirectory/tmpdir.XXXXXX".cstr.ptr
+                val directory = mkdtemp(template)?.toKString()
+                checkNotNull(directory)
+            }
         }
 
         actual suspend fun createDirectory(path: String): Boolean =
             withContext(Dispatchers.Default) {
-                val result = mkdir(__path = path, __mode = 755)
+                val result = mkdir(
+                    __path = path,
+                    __mode = 0b111101101 /* 0755 */
+                )
                 (result == 0)
             }
 
@@ -48,7 +56,8 @@ actual class Files {
                 memScoped {
                     val fileDescriptor = open(
                         __file = path,
-                        __oflag = (O_WRONLY or O_CREAT or O_TRUNC)
+                        __oflag = (O_WRONLY or O_CREAT or O_TRUNC),
+                        0b110100100 /* 0644 */
                     )
                     try {
                         val bytes = text.encodeToByteArray().toCValues()
