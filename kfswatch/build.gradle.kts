@@ -9,6 +9,12 @@ plugins {
 }
 
 kotlin {
+    mingwX64 {
+        binaries.configureEach {
+            // UuidCreate, RpcStringFreeW, UuidToStringW に必要
+            linkerOpts("-lrpcrt4")
+        }
+    }
     sourceSets {
         commonMain {
             dependencies {
