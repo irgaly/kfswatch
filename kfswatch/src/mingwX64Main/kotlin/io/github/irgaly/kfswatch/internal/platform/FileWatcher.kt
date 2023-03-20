@@ -47,6 +47,10 @@ import platform.windows.FILE_NOTIFY_INFORMATION
 import platform.windows.FILE_SHARE_DELETE
 import platform.windows.FILE_SHARE_READ
 import platform.windows.FILE_SHARE_WRITE
+import platform.windows.FORMAT_MESSAGE_ALLOCATE_BUFFER
+import platform.windows.FORMAT_MESSAGE_FROM_SYSTEM
+import platform.windows.FORMAT_MESSAGE_IGNORE_INSERTS
+import platform.windows.FormatMessageW
 import platform.windows.GetFileAttributesW
 import platform.windows.GetLastError
 import platform.windows.GetOverlappedResult
@@ -55,7 +59,9 @@ import platform.windows.INFINITE
 import platform.windows.INVALID_FILE_ATTRIBUTES
 import platform.windows.INVALID_HANDLE_VALUE
 import platform.windows.InitializeCriticalSection
+import platform.windows.LPWSTRVar
 import platform.windows.LeaveCriticalSection
+import platform.windows.LocalFree
 import platform.windows.MAXIMUM_WAIT_OBJECTS
 import platform.windows.OPEN_EXISTING
 import platform.windows.OVERLAPPED
@@ -149,10 +155,10 @@ internal actual class FileWatcher actual constructor(
                         lpName = null
                     )
                     if (threadResetHandle == null) {
-                        val errorCode = GetLastError()
+                        val error = getLastError()
                         onError(
                             targetDirectory,
-                            "threadResetHandle CreateEventW failed: error=$errorCode, $targetDirectory"
+                            "threadResetHandle CreateEventW failed: error=$error, $targetDirectory"
                         )
                         continue
                     }
@@ -237,6 +243,8 @@ internal actual class FileWatcher actual constructor(
             logger?.debug { "watchingThread() start" }
             // DWORD = 32 bits = 4 bytes
             // DWORD * (1024 * 2 length) = 4 * 1024 * 2 = 8 KB
+            // 十分に大きなバッファを確保する
+            // ファイル名が1024文字(実際には1024文字のファイル名は存在しない)入るような計算をしている
             val bufferLength = 1024 * 2
             val bufferSize = (sizeOf<DWORDVar>() * bufferLength).toUInt()
             val bytesReturned = alloc<DWORDVar>()
@@ -295,10 +303,10 @@ internal actual class FileWatcher actual constructor(
                                         overlapped.hEvent = it
                                     }
                                     if (eventHandle == null) {
-                                        val errorCode = GetLastError()
+                                        val error = getLastError()
                                         onError(
                                             targetPath.originalPath,
-                                            "CreateEventW failed: error=$errorCode, ${targetPath.originalPath}"
+                                            "CreateEventW failed: error=$error, ${targetPath.originalPath}"
                                         )
                                         nativeHeap.free(overlapped)
                                         nativeHeap.free(buffer)
@@ -317,10 +325,10 @@ internal actual class FileWatcher actual constructor(
                                         )
                                     )
                                     if (handle == INVALID_HANDLE_VALUE) {
-                                        val errorCode = GetLastError()
+                                        val error = getLastError()
                                         onError(
                                             targetPath.originalPath,
-                                            "cannot open target: error=$errorCode, ${targetPath.originalPath}"
+                                            "cannot open target: error=$error, ${targetPath.originalPath}"
                                         )
                                         CloseHandle(eventHandle)
                                         nativeHeap.free(overlapped)
@@ -336,10 +344,8 @@ internal actual class FileWatcher actual constructor(
                                     )
                                     entry.second.apply {
                                         this.data = data
-                                        state = WatchState.Watching
                                     }
                                     resetTargets[entry.first] = data
-                                    onStart(targetPath.originalPath)
                                 }
 
                                 WatchState.Stopping -> {
@@ -382,14 +388,21 @@ internal actual class FileWatcher actual constructor(
 
                                 else -> {
                                     // その他のエラー
+                                    val error = getError(errorCode)
                                     onError(
                                         targetDirectory,
-                                        "ReadDirectoryChangesW failed: $targetDirectory"
+                                        "ReadDirectoryChangesW failed: error=$error, $targetDirectory"
                                     )
                                 }
                             }
                             // 監視停止したものを削除
                             stopWatching(entry.key)
+                        } else {
+                            val status = checkNotNull(targetStatuses[entry.key])
+                            if (status.state == WatchState.Adding) {
+                                status.state = WatchState.Watching
+                                onStart(targetDirectory)
+                            }
                         }
                     }
                     resetTargets.clear()
@@ -439,17 +452,26 @@ internal actual class FileWatcher actual constructor(
                         if (bytesReturned.value == 0U) {
                             // バッファー読み込み失敗
                             // buffer に情報が収まらなかったとき
-                            onError(
-                                target.key.originalPath,
-                                "ReadDirectoryChangesW buffer overflow: ${target.key.originalPath}"
-                            )
-                            logger?.debug { "ReadDirectoryChangesW buffer overflow: ${target.key.originalPath}\"" }
+                            // または、監視対象が削除されたときにも bytesReturned = 0 となる
+                            val fileAttributes = GetFileAttributesW(target.key.originalPath)
+                            if (fileAttributes == INVALID_FILE_ATTRIBUTES) {
+                                // 監視対象が削除された
+                                logger?.debug { "target deleted: ${target.key.originalPath}" }
+                                stop(listOf(target.key.originalPath))
+                            } else {
+                                // イベントがオーバーフローした
+                                onError(
+                                    target.key.originalPath,
+                                    "ReadDirectoryChangesW buffer overflow: ${target.key.originalPath}"
+                                )
+                                logger?.debug { "ReadDirectoryChangesW buffer overflow: ${target.key.originalPath}\"" }
+                            }
                         } else {
                             var infoPointer = target.value.buffer.reinterpret<FILE_NOTIFY_INFORMATION>()
                             while(true) {
                                 val info = infoPointer.pointed
-                                val path = info.fileName().unixPath()
-                                logger?.debug { "FILE_NOTIFY_INFORMATION event: ${info.toDebugString()}" }
+                                val path = info.fileName()
+                                logger?.debug { "FILE_NOTIFY_INFORMATION event: ${info.toDebugString()}, targetDirectory=${target.key.originalPath}" }
                                 // 監視対象とその子のイベントを検出
                                 when (info.Action.toInt()) {
                                     FILE_ACTION_ADDED,
@@ -492,9 +514,9 @@ internal actual class FileWatcher actual constructor(
                     // シグナル監視エラー
                     // スレッドを終了させる
                     finishing = true
-                    val errorCode = GetLastError()
-                    onError(null, "WaitForMultipleObjects error: $errorCode")
-                    logger?.error { "WaitForMultipleObjects error: $errorCode" }
+                    val error = getLastError()
+                    onError(null, "WaitForMultipleObjects error: $error")
+                    logger?.error { "WaitForMultipleObjects error: $error" }
                     continue
                 }
             }
@@ -540,10 +562,6 @@ internal actual class FileWatcher actual constructor(
         dispatcher.close()
     }
 
-    private fun String.unixPath(): String {
-        return replace("\\", "/")
-    }
-
     private fun FILE_NOTIFY_INFORMATION.toDebugString(): String {
         val actionString = mapOf(
             FILE_ACTION_ADDED to "FILE_ACTION_ADDED", // The file was added to the directory.
@@ -566,6 +584,32 @@ internal actual class FileWatcher actual constructor(
             ).also {
                 memcpy(it, FileName, FileNameLength.toULong())
             }.toKString()
+        }
+    }
+
+    private fun getLastError(): String {
+        return getError(GetLastError())
+    }
+
+    private fun getError(errorCode: UInt): String {
+        return memScoped {
+            val messagePointer = alloc<LPWSTRVar>()
+            FormatMessageW(
+                dwFlags = (
+                        FORMAT_MESSAGE_ALLOCATE_BUFFER or
+                                FORMAT_MESSAGE_FROM_SYSTEM or
+                                FORMAT_MESSAGE_IGNORE_INSERTS
+                        ).toUInt(),
+                lpSource = null,
+                dwMessageId = errorCode,
+                dwLanguageId = 0,
+                lpBuffer = messagePointer.ptr.reinterpret(),
+                nSize = 0,
+                Arguments = null
+            )
+            val message = checkNotNull(messagePointer.value).toKString()
+            LocalFree(hMem = messagePointer.value)
+            message
         }
     }
 }

@@ -25,9 +25,12 @@ internal expect class FileWatcher(
 }
 
 /**
- * 同時に監視できる最大数は 64 (Windows の制限に合わせる)
+ * 同時に監視できる最大数は 63 (Windows の制限に合わせる)
+ *
+ * Windows WaitForMultipleObjects() MAXIMUM_WAIT_OBJECTS = 64
+ * 64 - スレッド制御 Event 1 = 63
  */
-const val FileWatcherMaxTargets = 64
+const val FileWatcherMaxTargets = 63
 
 internal enum class FileWatcherEvent {
     /**

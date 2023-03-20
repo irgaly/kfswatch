@@ -91,30 +91,37 @@ internal actual class FileWatcher actual constructor(
                             }
                             // イベント発生までスレッド停止
                             val key = watchService.take()
-                            val targetDirectory = (key.watchable() as Path).pathString
+                            val targetDirectory = lock.withLock {
+                                keys.entries.associate {
+                                    it.value to it.key
+                                }[key]?.originalPath
+                            }
                             key.pollEvents().forEach { event ->
                                 logger?.debug {
                                     "WatchService: kind = ${event.kind()}, context = ${event.context()}, count = ${event.count()}"
                                 }
-                                val path = (event.context() as Path).pathString
-                                when (event.kind()) {
-                                    StandardWatchEventKinds.ENTRY_CREATE -> {
-                                        onEvent(targetDirectory, path, FileWatcherEvent.Create)
-                                    }
+                                // イベント発生と同時に stop() されると、targetDirectory = null はありえる
+                                if (targetDirectory != null) {
+                                    val path = (event.context() as Path).pathString
+                                    when (event.kind()) {
+                                        StandardWatchEventKinds.ENTRY_CREATE -> {
+                                            onEvent(targetDirectory, path, FileWatcherEvent.Create)
+                                        }
 
-                                    StandardWatchEventKinds.ENTRY_DELETE -> {
-                                        onEvent(targetDirectory, path, FileWatcherEvent.Delete)
-                                    }
+                                        StandardWatchEventKinds.ENTRY_DELETE -> {
+                                            onEvent(targetDirectory, path, FileWatcherEvent.Delete)
+                                        }
 
-                                    StandardWatchEventKinds.ENTRY_MODIFY -> {
-                                        onEvent(targetDirectory, path, FileWatcherEvent.Modify)
-                                    }
+                                        StandardWatchEventKinds.ENTRY_MODIFY -> {
+                                            onEvent(targetDirectory, path, FileWatcherEvent.Modify)
+                                        }
 
-                                    StandardWatchEventKinds.OVERFLOW -> {
-                                        onError(
-                                            targetDirectory,
-                                            "Events overflowed: $targetDirectory"
-                                        )
+                                        StandardWatchEventKinds.OVERFLOW -> {
+                                            onError(
+                                                targetDirectory,
+                                                "Events overflowed: $targetDirectory"
+                                            )
+                                        }
                                     }
                                 }
                             }

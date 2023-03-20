@@ -22,4 +22,8 @@ class PlatformPath (
     override fun hashCode(): Int {
         return path.hashCode()
     }
+
+    override fun toString(): String {
+        return "PlatformPath($originalPath)"
+    }
 }

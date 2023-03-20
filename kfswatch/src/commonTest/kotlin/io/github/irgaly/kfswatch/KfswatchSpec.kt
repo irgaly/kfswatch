@@ -68,10 +68,7 @@ class KfswatchSpec : DescribeFunSpec({
             it.event shouldBe event
             it.path shouldBe path
             if (targetDirectory != null) {
-                val directory = if (Platform.isWindows || Platform.isJvmWindows) {
-                    targetDirectory.replace("/", "\\")
-                } else targetDirectory
-                it.targetDirectory shouldBe directory
+                it.targetDirectory shouldBe targetDirectory
             }
         }
     }
@@ -81,12 +78,9 @@ class KfswatchSpec : DescribeFunSpec({
         repeat(list.size) {
             val item = awaitItem()
             val index = list.indexOfFirst { event ->
-                val directory = if (Platform.isWindows || Platform.isJvmWindows) {
-                    event.targetDirectory?.replace("/", "\\")
-                } else event.targetDirectory
                 (event.event == item.event) &&
                         (event.path == item.path) &&
-                        (directory?.let { it == item.targetDirectory } ?: true)
+                        (event.targetDirectory?.let { it == item.targetDirectory } ?: true)
             }
             if (index < 0) {
                 fail("$item is not expected in: ${events.joinToString(",")}")
@@ -215,9 +209,9 @@ class KfswatchSpec : DescribeFunSpec({
             errors.cancel()
             watcher.close()
         }
-        it("監視対象は 64 個まで可能") {
-            val directory = "$tempDirectory/many_64".also { mkdirs(it) }
-            (1..65).forEach {
+        it("監視対象は 63 個まで可能") {
+            val directory = "$tempDirectory/many_63".also { mkdirs(it) }
+            (1..64).forEach {
                 mkdirs("$directory/directory$it")
             }
             val watcher = createWatcher()
@@ -225,7 +219,7 @@ class KfswatchSpec : DescribeFunSpec({
             val starts = watcher.onStartFlow.testIn(this)
             val stops = watcher.onStopFlow.testIn(this)
             watcher.onEventFlow.test(timeout = 5.seconds) {
-                (1..64).forEach {
+                (1..63).forEach {
                     val target = "$directory/directory$it"
                     watcher.addWait(target)
                     starts.awaitItem() shouldBe target
@@ -237,20 +231,32 @@ class KfswatchSpec : DescribeFunSpec({
                     watcher.watchingDirectories.size shouldBe it
                 }
                 // JVM on macOS はイベント通知が遅いので、まとめてイベントをチェックする
-                awaitEvents(
-                    *(1..64).map {
-                        Event(KfsEvent.Create, "file", "$directory/directory$it")
-                    }.toTypedArray()
-                )
-                val target65 = "$directory/directory65"
-                watcher.add(target65)
-                errors.awaitItem().targetDirectory shouldBe target65
-                watcher.watchingDirectories.size shouldBe 64
-                (1..64).forEach {
+                if (Platform.isWindows) {
+                    // Windows はファイルの新規作成で Create - Modify が発生する
+                    awaitEvents(
+                        *(1..63).flatMap {
+                            listOf(
+                                Event(KfsEvent.Create, "file", "$directory/directory$it"),
+                                Event(KfsEvent.Modify, "file", "$directory/directory$it"),
+                            )
+                        }.toTypedArray()
+                    )
+                } else {
+                    awaitEvents(
+                        *(1..63).map {
+                            Event(KfsEvent.Create, "file", "$directory/directory$it")
+                        }.toTypedArray()
+                    )
+                }
+                val target64 = "$directory/directory64"
+                watcher.add(target64)
+                errors.awaitItem().targetDirectory shouldBe target64
+                watcher.watchingDirectories.size shouldBe 63
+                (1..63).forEach {
                     val target = "$directory/directory$it"
                     watcher.remove(target)
                     stops.awaitItem() shouldBe target
-                    watcher.watchingDirectories.size shouldBe (64 - it)
+                    watcher.watchingDirectories.size shouldBe (63 - it)
                 }
             }
             stops.ensureAllEventsConsumed()
@@ -335,8 +341,9 @@ class KfswatchSpec : DescribeFunSpec({
                     (Platform.isJvmLinux
                             || Platform.isJvmWindows
                             || Platform.isMacos
-                            || Platform.isIos) -> {
-                        // JVM on Linux, JVM on Windows, macOS, iOS
+                            || Platform.isIos
+                            || Platform.isWindows) -> {
+                        // JVM on Linux, JVM on Windows, macOS, iOS, Windows
                         // では file2 の Delete が発生する
                         awaitEvents(
                             Event(KfsEvent.Delete, "file1"),
@@ -393,9 +400,10 @@ class KfswatchSpec : DescribeFunSpec({
                             || Platform.isJvmWindows
                             || Platform.isNodejsWindows
                             || Platform.isMacos
-                            || Platform.isIos) -> {
+                            || Platform.isIos
+                            || Platform.isWindows) -> {
                         // JVM on Linux, JVM on Windows, Nodejs on Windows
-                        // macOS, iOS
+                        // macOS, iOS, Windows
                         // では directory2 の Delete が発生する
                         awaitEvents(
                             Event(KfsEvent.Delete, "directory1"),
