@@ -1,0 +1,98 @@
+name: Build & Test
+on:
+  push:
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [macos-latest, ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.platform }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-java@v3
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: ./.github/actions/gradle-cache
+      - name: JVM Build
+        run: |
+          ./gradlew :kfswatch:jvmTestClasses
+      - name: Nodejs Build
+        run: |
+          ./gradlew :kfswatch:jsTestClasses
+      - name: Android Build
+        if: matrix.platform == 'macos-latest'
+        run: |
+          ./gradlew :kfswatch:packageDebugAndroidTest
+      - name: Linux Build
+        if: matrix.platform == 'ubuntu-latest'
+        run: |
+          ./gradlew :kfswatch:linkDebugTestLinuxX64
+      - name: Windows Build
+        if: matrix.platform == 'windows-latest'
+        run: |
+          ./gradlew :kfswatch:linkDebugTestMingwX64
+      - name: iOS Build
+        if: matrix.platform == 'macos-latest'
+        run: |
+          ./gradlew :kfswatch:linkDebugTestIosX64
+      - name: macOS Build
+        if: matrix.platform == 'macos-latest'
+        run: |
+          ./gradlew :kfswatch:linkDebugTestMacosX64
+      - name: JVM Test
+        run: |
+          ./gradlew :kfswatch:jvmTest
+      - name: Nodejs Test
+        run: |
+          ./gradlew :kfswatch:jsNodeTest
+      - name: Android Test
+        uses: reactivecircus/android-emulator-runner@v2
+        if: matrix.platform == 'macos-latest'
+        with:
+          api-level: 29
+          target: google_apis
+          arch: x86_64
+          script: |
+            #./gradlew :kfswatch:pixel6GroupDebugAndroidTest
+            ./gradlew :kfswatch:connectedDebugAndroidTest
+      - name: Linux Test
+        if: matrix.platform == 'ubuntu-latest'
+        run: |
+          ./gradlew :kfswatch:linuxX64Test
+      - name: Windows Test
+        if: matrix.platform == 'windows-latest'
+        run: |
+          ./gradlew :kfswatch:mingwX64Test
+      - name: iOS Test
+        if: matrix.platform == 'macos-latest'
+        run: |
+          ./gradlew :kfswatch:iosX64Test
+      - name: macOS Test
+        if: matrix.platform == 'macos-latest'
+        run: |
+          ./gradlew :kfswatch:macosX64Test
+      - name: Stop Gradle on Windows
+        if: matrix.platform == 'windows-latest'
+        run: |
+          # Windows で gradle cache を保存するために
+          # .gradle/caches/8.0/kotlin-dsl/kotlin-dsl.lock の使用中ロックを解除する
+          ./gradlew --stop
+      - uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: test-results
+          path: |
+            **/build/reports/tests/jvmTest
+            **/build/reports/tests/jsNodeTest
+            **/build/reports/androidTests/managedDevice/allDevices
+            **/build/reports/androidTests/connected
+            **/build/reports/tests/linuxX64Test
+            **/build/reports/tests/mingwX64Test
+            **/build/reports/tests/macosX64Test
+            **/build/reports/tests/iosX64Test

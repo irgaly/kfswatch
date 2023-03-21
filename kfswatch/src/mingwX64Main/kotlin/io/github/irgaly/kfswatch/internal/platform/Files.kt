@@ -1,5 +1,7 @@
 package io.github.irgaly.kfswatch.internal.platform
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import platform.windows.ERROR_SUCCESS
 import platform.windows.GetFileAttributesW
 import platform.windows.INVALID_FILE_ATTRIBUTES
@@ -7,15 +9,16 @@ import platform.windows.SHCreateDirectoryExW
 
 internal actual class Files {
     actual companion object {
-        actual fun exists(path: String): Boolean {
+        actual suspend fun exists(path: String): Boolean = withContext(Dispatchers.Default) {
             val windowsPath = path.replace("/", separator)
-            return (GetFileAttributesW(windowsPath) != INVALID_FILE_ATTRIBUTES)
+            (GetFileAttributesW(windowsPath) != INVALID_FILE_ATTRIBUTES)
         }
 
-        actual fun mkdirs(directoryPath: String): Boolean {
-            val windowsPath = directoryPath.replace("/", separator)
-            return (SHCreateDirectoryExW(null, windowsPath, null) == ERROR_SUCCESS)
-        }
+        actual suspend fun mkdirs(directoryPath: String): Boolean =
+            withContext(Dispatchers.Default) {
+                val windowsPath = directoryPath.replace("/", separator)
+                (SHCreateDirectoryExW(null, windowsPath, null) == ERROR_SUCCESS)
+            }
 
         actual val separator: String = "\\"
     }
