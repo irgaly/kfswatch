@@ -245,12 +245,11 @@ class KfswatchSpec : DescribeFunSpec({
                     val target = "$directory/directory$it"
                     watcher.addWait(target)
                     starts.awaitItem() shouldBe target
-                    if (Platform.isNodejs) {
-                        // Nodejs で監視開始直後のイベントを受け取れないことがあるため delay
-                        delay(10.milliseconds)
-                    }
-                    writeFile("$target/file", "")
                     watcher.watchingDirectories.size shouldBe it
+                }
+                (1..63).forEach {
+                    val target = "$directory/directory$it"
+                    writeFile("$target/file", "")
                 }
                 // JVM on macOS はイベント通知が遅いので、まとめてイベントをチェックする
                 awaitEvents(
@@ -499,18 +498,6 @@ class KfswatchSpec : DescribeFunSpec({
             watcher.onEventFlow.test(timeout = 5.seconds) {
                 watcher.addWait(directory)
                 Files.deleteRecursively(directory)
-                if (Platform.isNodejsLinux) {
-                    // Nodejs on Linux では監視対象のディレクトリの削除で
-                    // 監視対象ディレクトリの名前で rename イベントが発生する
-                    // Kfswatch では Create, Delete としてイベントが発生するので
-                    // それを無視する
-                    // 不適切なイベントだが、監視対象ディレクトリと同名のファイルのイベント
-                    // との区別が付かないためどうしようもない
-                    awaitEvents(
-                        Event(KfsEvent.Create, "directory_delete"),
-                        Event(KfsEvent.Delete, "directory_delete")
-                    )
-                }
                 stops.awaitItem() shouldBe directory
                 watcher.watchingDirectories should beEmpty()
             }
@@ -537,11 +524,16 @@ class KfswatchSpec : DescribeFunSpec({
                     // Windows では監視対象の親ディレクトリは移動が失敗する
                     Files.move(parent, "$directory/parent2")
                     when {
-                        (Platform.isMacos || Platform.isIos) -> {
+                        (Platform.isMacos
+                                || Platform.isIos
+                                || Platform.isNodejsLinux) -> {
                             // macOS, iOS
                             // は監視対象の親ディレクトリの移動は検出されない
                             // 移動後にディレクトリエントリの増減があると
                             // ディレクトリを読み取れないことに気づき監視を停止する
+                            // Nodejs on Linux
+                            // も、ディレクトリエントリ変更時に対象ディレクトリがないことに気づいて
+                            // 監視を停止する
                             writeFile("$directory/parent2/target/child", "")
                             stops.awaitItem() shouldBe target
                         }
