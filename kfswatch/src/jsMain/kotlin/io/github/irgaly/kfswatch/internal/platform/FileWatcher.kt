@@ -69,51 +69,59 @@ internal actual class FileWatcher actual constructor(
                     logger?.debug {
                         "fs.watch: event = $event, filename = $filename, target = $targetDirectory"
                     }
-                    when (event) {
-                        "rename" -> {
-                            // 子要素の作成、削除、名前変更、内容変更
-                            val path = checkNotNull(filename)
-                            val beforeExists = children.contains(path)
-                            var afterExists =
-                                fs.existsSync("$targetDirectory/$path").unsafeCast<Boolean>()
-                            if (beforeExists) {
-                                if (afterExists) {
-                                    // * 対象が削除され、同名の要素が作成された (上書き move など)
-                                    // * ファイル内容が置き換えられた (内容削除を伴う上書き書き込みなど)
-                                    onEvent(targetDirectory, path, FileWatcherEvent.Modify)
+                    val targetExists = fs.existsSync(targetDirectory).unsafeCast<Boolean>()
+                    if (!targetExists) {
+                        // * 監視対象が移動または削除された
+                        // * 監視対象の親ディレクトリが移動または削除された
+                        stop(listOf(targetDirectory))
+                    } else {
+                        when (event) {
+                            "rename" -> {
+                                // 子要素の作成、削除、名前変更、内容変更
+                                val path = checkNotNull(filename)
+                                val beforeExists = children.contains(path)
+                                val afterExists =
+                                    fs.existsSync("$targetDirectory/$path").unsafeCast<Boolean>()
+                                if (beforeExists) {
+                                    if (afterExists) {
+                                        // * 対象が削除され、同名の要素が作成された (上書き move など)
+                                        // * ファイル内容が置き換えられた (内容削除を伴う上書き書き込みなど)
+                                        onEvent(targetDirectory, path, FileWatcherEvent.Modify)
+                                    } else {
+                                        // 対象がディレクトリから削除された
+                                        onEvent(targetDirectory, path, FileWatcherEvent.Delete)
+                                    }
                                 } else {
-                                    // 対象がディレクトリから削除された
-                                    onEvent(targetDirectory, path, FileWatcherEvent.Delete)
+                                    if (afterExists) {
+                                        // 対象が作成された
+                                        onEvent(targetDirectory, path, FileWatcherEvent.Create)
+                                    } else {
+                                        // 以下のどちらの状況か判定ができないため Delete イベントとする
+                                        // どちらの場合でも Delete イベントが2回流れることになる
+                                        // * 対象が作成されたがすぐに削除された
+                                        // * 対象が削除されたとき、rename イベントが2回発生した
+                                        onEvent(targetDirectory, path, FileWatcherEvent.Delete)
+                                    }
                                 }
-                            } else {
                                 if (afterExists) {
-                                    // 対象が作成された
-                                    onEvent(targetDirectory, path, FileWatcherEvent.Create)
+                                    children.add(path)
                                 } else {
-                                    // 対象が作成されたがすぐに削除された
-                                    // Create イベントだけ通知し、Delete は次のイベントで通知する
-                                    onEvent(targetDirectory, path, FileWatcherEvent.Create)
-                                    afterExists = true
+                                    children.remove(path)
                                 }
                             }
-                            if (afterExists) {
-                                children.add(path)
-                            } else {
-                                children.remove(path)
+
+                            "change" -> {
+                                // 子要素の内容変更
+                                onEvent(
+                                    targetDirectory,
+                                    checkNotNull(filename),
+                                    FileWatcherEvent.Modify
+                                )
                             }
-                        }
 
-                        "change" -> {
-                            // 子要素の内容変更
-                            onEvent(
-                                targetDirectory,
-                                checkNotNull(filename),
-                                FileWatcherEvent.Modify
-                            )
-                        }
-
-                        else -> {
-                            // rename, change 以外のイベントは存在しない
+                            else -> {
+                                // rename, change 以外のイベントは存在しない
+                            }
                         }
                     }
                 }
