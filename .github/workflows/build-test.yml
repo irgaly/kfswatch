@@ -61,12 +61,6 @@ jobs:
           script: |
             #./gradlew :kfswatch:pixel6GroupDebugAndroidTest
             ./gradlew :kfswatch:connectedDebugAndroidTest
-      - uses: actions/upload-artifact@v3
-        with:
-          name: Android Emulator Test Report
-          path: |
-            **/androidTests/managedDevice/allDevices
-            **/androidTests/connected
       - name: Linux Test
         if: matrix.platform == 'ubuntu-latest'
         run: |
@@ -83,3 +77,16 @@ jobs:
         if: matrix.platform == 'macos-latest'
         run: |
           ./gradlew :kfswatch:macosX64Test
+      - uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: test-results
+          path: |
+            **/build/reports/tests/jvmTest
+            **/build/reports/tests/jsNodeTest
+            **/build/reports/androidTests/managedDevice/allDevices
+            **/build/reports/androidTests/connected
+            **/build/reports/tests/linuxX64Test
+            **/build/reports/tests/mingwX64Test
+            **/build/reports/tests/macosX64Test
+            **/build/reports/tests/iosX64Test
