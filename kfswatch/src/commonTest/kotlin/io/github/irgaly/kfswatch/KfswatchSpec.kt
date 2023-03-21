@@ -64,11 +64,12 @@ class KfswatchSpec : DescribeFunSpec({
         path: String,
         targetDirectory: String? = null
     ) {
-        awaitItem() should {
-            it.event shouldBe event
-            it.path shouldBe path
-            if (targetDirectory != null) {
-                it.targetDirectory shouldBe targetDirectory
+        awaitItem() should { item ->
+            if ((item.event != event) ||
+                (item.path != path) ||
+                (targetDirectory?.let { item.targetDirectory != it } == true)
+            ) {
+                fail("actual $item is not expected ($event, $path, $targetDirectory)")
             }
         }
     }
