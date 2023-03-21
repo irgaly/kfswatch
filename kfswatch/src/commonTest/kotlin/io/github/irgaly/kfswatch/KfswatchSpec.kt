@@ -58,6 +58,11 @@ class KfswatchSpec : DescribeFunSpec({
                 }
             }
         }
+        if (Platform.isNodejsMacos) {
+            // Nodejs on macOS で監視開始直後のイベントが流れないことがあるので
+            // 余裕を持って待つ
+            delay(100.milliseconds)
+        }
     }
 
     suspend fun writeFile(path: String, text: String) {
@@ -283,7 +288,15 @@ class KfswatchSpec : DescribeFunSpec({
             val file = "$directory/file".also { writeFile(it, "") }
             val watcher = createWatcher()
             val errors = watcher.onErrorFlow.testIn(this)
-            watcher.onEventFlow.test(timeout = 5.seconds) {
+            watcher.onEventFlow.filter {
+                if (Platform.isNodejsMacos) {
+                    // Nodejs on macOS では
+                    // 移動元は Modify -> Delete で報告されるときと
+                    // Delete のみで報告されるときがある
+                    // 安定しないので Modify を無視する
+                    (it.event != KfsEvent.Modify)
+                } else true
+            }.test(timeout = 5.seconds) {
                 watcher.addWait(directory)
                 Files.move(file, "$directory/file2")
                 awaitEvents(
@@ -301,7 +314,15 @@ class KfswatchSpec : DescribeFunSpec({
             val file = "$target/file".also { writeFile(it, "") }
             val watcher = createWatcher()
             val errors = watcher.onErrorFlow.testIn(this)
-            watcher.onEventFlow.test(timeout = 5.seconds) {
+            watcher.onEventFlow.filter {
+                if (Platform.isNodejsMacos) {
+                    // Nodejs on macOS では
+                    // 移動元は Modify -> Delete で報告されるときと
+                    // Delete のみで報告されるときがある
+                    // 安定しないので Modify を無視する
+                    (it.event != KfsEvent.Modify)
+                } else true
+            }.test(timeout = 5.seconds) {
                 watcher.addWait(target)
                 Files.move(file, "$directory/file2")
                 awaitEvent(KfsEvent.Delete, "file")
@@ -436,14 +457,30 @@ class KfswatchSpec : DescribeFunSpec({
                     }
 
                     Platform.isNodejsMacos -> {
-                        // Nodejs on macOS では directory2 を削除してから
-                        // rename する
-                        // 上書きは Modify として検出される
-                        awaitEvents(
-                            Event(KfsEvent.Modify, "directory2"),
-                            Event(KfsEvent.Delete, "directory1"),
-                            Event(KfsEvent.Modify, "directory2")
-                        )
+                        // Nodejs on macOS では以下のイベントが流れる可能性がある
+                        // * directory1 - Modify (発生しないこともある)
+                        // * directory1 - Delete
+                        // * directory2 - Modify
+                        // * directory2 - Modify
+                        // directory1 の move による移動は Modify - Delete または Delete のみ。
+                        // directory2 は削除と上書きで rename が発生し Modify が通知される
+                        val items = mutableListOf(awaitItem(), awaitItem(), awaitItem())
+                        if (items.any { it.path == "directory1" && it.event == KfsEvent.Modify }) {
+                            items += awaitItem()
+                        }
+                        items.forEach {
+                            when (it.path) {
+                                "directory1" -> {
+                                    it.event shouldBeIn (listOf(KfsEvent.Modify, KfsEvent.Delete))
+                                }
+
+                                "directory2" -> {
+                                    it.event shouldBe KfsEvent.Modify
+                                }
+                            }
+                        }
+                        // directory1 Modify が最後に流れてきたら無視する
+                        cancelAndIgnoreRemainingEvents()
                     }
 
                     (Platform.isLinux || Platform.isAndroid) -> {
@@ -562,7 +599,14 @@ class KfswatchSpec : DescribeFunSpec({
             val child = "$directory/child".also { mkdirs(it) }
             val watcher = createWatcher()
             val errors = watcher.onErrorFlow.testIn(this)
-            watcher.onEventFlow.test(timeout = 5.seconds) {
+            watcher.onEventFlow.filter {
+                if (Platform.isNodejsMacos) {
+                    // Nodejs on macOS では
+                    // Modify が発生したりしなかったりする
+                    // 安定しないので Modify を無視する
+                    (it.event != KfsEvent.Modify)
+                } else true
+            }.test(timeout = 5.seconds) {
                 watcher.addWait(directory)
                 mkdirs("$child/child2")
                 if (Platform.isMacos || Platform.isIos) {
