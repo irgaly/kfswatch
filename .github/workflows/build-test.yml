@@ -77,6 +77,12 @@ jobs:
         if: matrix.platform == 'macos-latest'
         run: |
           ./gradlew :kfswatch:macosX64Test
+      - name: Stop Gradle on Windows
+        if: matrix.platform == 'windows-latest'
+        run: |
+          # Windows で gradle cache を保存するために
+          # .gradle/caches/8.0/kotlin-dsl/kotlin-dsl.lock の使用中ロックを解除する
+          ./gradlew --stop
       - uses: actions/upload-artifact@v3
         if: always()
         with:
