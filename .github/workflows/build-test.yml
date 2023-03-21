@@ -84,15 +84,29 @@ jobs:
           # .gradle/caches/8.0/kotlin-dsl/kotlin-dsl.lock の使用中ロックを解除する
           ./gradlew --stop
       - uses: actions/upload-artifact@v3
-        if: always()
+        if: always() && (matrix.platform == 'macos-latest')
         with:
-          name: test-results
+          name: test-results-macos
           path: |
             **/build/reports/tests/jvmTest
             **/build/reports/tests/jsNodeTest
             **/build/reports/androidTests/managedDevice/allDevices
             **/build/reports/androidTests/connected
-            **/build/reports/tests/linuxX64Test
-            **/build/reports/tests/mingwX64Test
             **/build/reports/tests/macosX64Test
             **/build/reports/tests/iosX64Test
+      - uses: actions/upload-artifact@v3
+        if: always() && (matrix.platform == 'ubuntu-latest')
+        with:
+          name: test-results-linux
+          path: |
+            **/build/reports/tests/jvmTest
+            **/build/reports/tests/jsNodeTest
+            **/build/reports/tests/linuxX64Test
+      - uses: actions/upload-artifact@v3
+        if: always() && (matrix.platform == 'windows-latest')
+        with:
+          name: test-results-windows
+          path: |
+            **/build/reports/tests/jvmTest
+            **/build/reports/tests/jsNodeTest
+            **/build/reports/tests/mingwX64Test
