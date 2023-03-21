@@ -131,10 +131,16 @@ class KfswatchSpec : DescribeFunSpec({
                     )
                 }
                 writeFile("$directory/child3", "")
-                awaitEvent(KfsEvent.Create, "child3")
                 if (Platform.isWindows) {
                     // Windows では空のファイル作成でも Modify イベントが発生する
-                    awaitEvent(KfsEvent.Modify, "child3")
+                    // OS の ADDED, MODIFIED は順番に発生するが、
+                    // Flow に Create, Modify が流れる順番は保証されない
+                    awaitEvents(
+                        Event(KfsEvent.Create, "child3"),
+                        Event(KfsEvent.Modify, "child3")
+                    )
+                } else {
+                    awaitEvent(KfsEvent.Create, "child3")
                 }
                 writeFile("$directory/child2", "test2")
                 awaitEvent(KfsEvent.Modify, "child2")
