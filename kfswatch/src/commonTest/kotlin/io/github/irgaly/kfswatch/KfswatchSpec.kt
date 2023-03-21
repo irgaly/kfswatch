@@ -11,6 +11,7 @@ import io.kotest.assertions.fail
 import io.kotest.core.test.TestScope
 import io.kotest.matchers.collections.beEmpty
 import io.kotest.matchers.collections.shouldBeIn
+import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.should
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.delay
@@ -34,10 +35,8 @@ class KfswatchSpec : DescribeFunSpec({
     }
 
     fun TestScope.createWatcher(): KfsDirectoryWatcher {
-        //@OptIn(DelicateCoroutinesApi::class)
         return KfsDirectoryWatcher(
             scope = this,
-            //scope = CoroutineScope(GlobalScope.coroutineContext + Job()), // テストが失敗するときはエラーログ出力にこちらを使う
             logger = logger
         )
     }
@@ -106,62 +105,82 @@ class KfswatchSpec : DescribeFunSpec({
         }
     }
 
+    suspend fun assertEvents(receivedEvents: List<KfsDirectoryWatcherEvent>, vararg events: Event) {
+        val list = events.toMutableList()
+        receivedEvents shouldHaveSize events.size
+        (0..events.lastIndex).forEach { itemIndex ->
+            val item = receivedEvents[itemIndex]
+            val index = list.indexOfFirst { event ->
+                (event.event == item.event) &&
+                        (event.path == item.path) &&
+                        (event.targetDirectory?.let { it == item.targetDirectory } ?: true)
+            }
+            if (index < 0) {
+                fail("$item is not expected in: ${events.joinToString(",")}")
+            } else {
+                list.removeAt(index)
+            }
+        }
+    }
+
     describe("基本機能") {
         it("directory, file の Create, Delete, Modify を検出できる") {
             val directory = "$tempDirectory/basic".also { mkdirs(it) }
             val watcher = createWatcher()
             val errors = watcher.onErrorFlow.testIn(this)
-            watcher.onEventFlow.distinctUntilChanged().test(timeout = 5.seconds) {
+            watcher.onEventFlow
                 // ファイル内容書き換えでは同じ内容の Modify が複数流れることがあるので distinct する
-                watcher.addWait(directory)
-                mkdirs("$directory/child1")
-                awaitEvent(KfsEvent.Create, "child1")
-                writeFile("$directory/child2", "test")
-                if (Platform.isJvmMacos
-                    || Platform.isNodejsMacos
-                    || Platform.isMacos
-                    || Platform.isIos
-                ) {
-                    // JVM on macOS はポーリング監視実装のため
-                    // 新規作成では Modify イベントは発生しない
-                    // Nodejs on macOS も Modify は発生しない
-                    // macOS, iOS kqueue も Modify は発生しない
-                    awaitEvents(
-                        Event(KfsEvent.Create, "child2")
-                    )
-                } else {
-                    awaitEvents(
-                        Event(KfsEvent.Create, "child2"),
-                        Event(KfsEvent.Modify, "child2")
-                    )
+                .distinctUntilChanged()
+                .test(timeout = 5.seconds) {
+                    watcher.addWait(directory)
+                    mkdirs("$directory/child1")
+                    awaitEvent(KfsEvent.Create, "child1")
+                    writeFile("$directory/child2", "test")
+                    if (Platform.isJvmMacos
+                        || Platform.isNodejsMacos
+                        || Platform.isMacos
+                        || Platform.isIos
+                    ) {
+                        // JVM on macOS はポーリング監視実装のため
+                        // 新規作成では Modify イベントは発生しない
+                        // Nodejs on macOS も Modify は発生しない
+                        // macOS, iOS kqueue も Modify は発生しない
+                        awaitEvents(
+                            Event(KfsEvent.Create, "child2")
+                        )
+                    } else {
+                        awaitEvents(
+                            Event(KfsEvent.Create, "child2"),
+                            Event(KfsEvent.Modify, "child2")
+                        )
+                    }
+                    writeFile("$directory/child3", "")
+                    if (Platform.isWindows) {
+                        // Windows では空のファイル作成でも Modify イベントが発生する
+                        // OS の ADDED, MODIFIED は順番に発生するが、
+                        // Flow に Create, Modify が流れる順番は保証されない
+                        awaitEvents(
+                            Event(KfsEvent.Create, "child3"),
+                            Event(KfsEvent.Modify, "child3")
+                        )
+                    } else {
+                        awaitEvent(KfsEvent.Create, "child3")
+                    }
+                    writeFile("$directory/child2", "test2")
+                    awaitEvent(KfsEvent.Modify, "child2")
+                    Files.deleteRecursively("$directory/child1")
+                    awaitEvent(KfsEvent.Delete, "child1")
+                    Files.deleteRecursively("$directory/child2")
+                    if (Platform.isJvmWindows) {
+                        // JVM on Windows ではファイル削除で Modify, Delete が発生する
+                        awaitEvents(
+                            Event(KfsEvent.Modify, "child2"),
+                            Event(KfsEvent.Delete, "child2")
+                        )
+                    } else {
+                        awaitEvent(KfsEvent.Delete, "child2")
+                    }
                 }
-                writeFile("$directory/child3", "")
-                if (Platform.isWindows) {
-                    // Windows では空のファイル作成でも Modify イベントが発生する
-                    // OS の ADDED, MODIFIED は順番に発生するが、
-                    // Flow に Create, Modify が流れる順番は保証されない
-                    awaitEvents(
-                        Event(KfsEvent.Create, "child3"),
-                        Event(KfsEvent.Modify, "child3")
-                    )
-                } else {
-                    awaitEvent(KfsEvent.Create, "child3")
-                }
-                writeFile("$directory/child2", "test2")
-                awaitEvent(KfsEvent.Modify, "child2")
-                Files.deleteRecursively("$directory/child1")
-                awaitEvent(KfsEvent.Delete, "child1")
-                Files.deleteRecursively("$directory/child2")
-                if (Platform.isJvmWindows) {
-                    // JVM on Windows ではファイル削除で Modify, Delete が発生する
-                    awaitEvents(
-                        Event(KfsEvent.Modify, "child2"),
-                        Event(KfsEvent.Delete, "child2")
-                    )
-                } else {
-                    awaitEvent(KfsEvent.Delete, "child2")
-                }
-            }
             errors.ensureAllEventsConsumed()
             errors.cancel()
             watcher.close()
@@ -180,7 +199,7 @@ class KfswatchSpec : DescribeFunSpec({
                 watcher.remove(directory)
                 stops.awaitItem() shouldBe directory
                 mkdirs("$directory/child2")
-                // no events
+                ensureAllEventsConsumed()
             }
             stops.ensureAllEventsConsumed()
             stops.cancel()
@@ -242,7 +261,7 @@ class KfswatchSpec : DescribeFunSpec({
             val stops = watcher.onStopFlow.testIn(this)
             watcher.onEventFlow.filter {
                 // Windows では writeFile で Create - Modify が発生する
-                // macOS, iOS でも writeFile で希に Modify が発生する
+                // macOS, iOS でも writeFile で希に Modify が発生することがある
                 // Modify が発生しても無視する
                 (it.event != KfsEvent.Modify)
             }.test(timeout = 5.seconds) {
@@ -425,34 +444,23 @@ class KfswatchSpec : DescribeFunSpec({
                         // Nodejs on Linux では directory2 を削除してから rename する
                         // 上書きされる directory2 は Delete - Create または Modify - Modify
                         // で通知される
-                        val events = listOf(
-                            awaitItem(),
-                            awaitItem(),
-                            awaitItem()
-                        )
-                        var isModify = false
-                        events.forEach { event ->
-                            when (event.path) {
-                                "directory1" -> {
-                                    event.event shouldBe KfsEvent.Delete
-                                }
-
-                                "directory2" -> {
-                                    if (event.event == KfsEvent.Modify) {
-                                        isModify = true
-                                    }
-                                    if (isModify) {
-                                        // Modify のときは Modify -> Modify と発生する
-                                        event.event shouldBe KfsEvent.Modify
-                                    } else {
-                                        // Delete のときは Delete -> Create と発生する
-                                        event.event shouldBeIn listOf(
-                                            KfsEvent.Delete,
-                                            KfsEvent.Create
-                                        )
-                                    }
-                                }
-                            }
+                        val events = listOf(awaitItem(), awaitItem(), awaitItem())
+                        if (events.any {
+                                (it.path == "directory2") && (it.event == KfsEvent.Modify)
+                            }) {
+                            assertEvents(
+                                events,
+                                Event(KfsEvent.Delete, "directory1"),
+                                Event(KfsEvent.Modify, "directory2"),
+                                Event(KfsEvent.Modify, "directory2")
+                            )
+                        } else {
+                            assertEvents(
+                                events,
+                                Event(KfsEvent.Delete, "directory1"),
+                                Event(KfsEvent.Delete, "directory2"),
+                                Event(KfsEvent.Create, "directory2")
+                            )
                         }
                     }
 
@@ -465,7 +473,9 @@ class KfswatchSpec : DescribeFunSpec({
                         // directory1 の move による移動は Modify - Delete または Delete のみ。
                         // directory2 は削除と上書きで rename が発生し Modify が通知される
                         val items = mutableListOf(awaitItem(), awaitItem(), awaitItem())
-                        if (items.any { it.path == "directory1" && it.event == KfsEvent.Modify }) {
+                        if (items.any {
+                                (it.path == "directory1") && (it.event == KfsEvent.Modify)
+                            }) {
                             items += awaitItem()
                         }
                         items.forEach {
@@ -503,7 +513,6 @@ class KfswatchSpec : DescribeFunSpec({
             errors.ensureAllEventsConsumed()
             errors.cancel()
             watcher.close()
-
         }
     }
     describe("検出しないもの") {
