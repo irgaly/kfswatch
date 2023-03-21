@@ -15,6 +15,7 @@ import io.kotest.matchers.should
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filter
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.ExperimentalTime
@@ -228,7 +229,12 @@ class KfswatchSpec : DescribeFunSpec({
             val errors = watcher.onErrorFlow.testIn(this)
             val starts = watcher.onStartFlow.testIn(this)
             val stops = watcher.onStopFlow.testIn(this)
-            watcher.onEventFlow.test(timeout = 5.seconds) {
+            watcher.onEventFlow.filter {
+                // Windows では writeFile で Create - Modify が発生する
+                // macOS, iOS でも writeFile で希に Modify が発生する
+                // Modify が発生しても無視する
+                (it.event != KfsEvent.Modify)
+            }.test(timeout = 5.seconds) {
                 (1..63).forEach {
                     val target = "$directory/directory$it"
                     watcher.addWait(target)
@@ -241,23 +247,11 @@ class KfswatchSpec : DescribeFunSpec({
                     watcher.watchingDirectories.size shouldBe it
                 }
                 // JVM on macOS はイベント通知が遅いので、まとめてイベントをチェックする
-                if (Platform.isWindows) {
-                    // Windows はファイルの新規作成で Create - Modify が発生する
-                    awaitEvents(
-                        *(1..63).flatMap {
-                            listOf(
-                                Event(KfsEvent.Create, "file", "$directory/directory$it"),
-                                Event(KfsEvent.Modify, "file", "$directory/directory$it"),
-                            )
-                        }.toTypedArray()
-                    )
-                } else {
-                    awaitEvents(
-                        *(1..63).map {
-                            Event(KfsEvent.Create, "file", "$directory/directory$it")
-                        }.toTypedArray()
-                    )
-                }
+                awaitEvents(
+                    *(1..63).map {
+                        Event(KfsEvent.Create, "file", "$directory/directory$it")
+                    }.toTypedArray()
+                )
                 val target64 = "$directory/directory64"
                 watcher.add(target64)
                 errors.awaitItem().targetDirectory shouldBe target64
