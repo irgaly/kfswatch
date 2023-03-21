@@ -47,10 +47,11 @@ internal actual class FileWatcher actual constructor(
                     onError(targetDirectory, "target is not directory: $targetDirectory")
                     continue
                 }
-                val parent = path.dirname(targetDirectory)
-                val parentWatcher = if (parent != targetDirectory) {
+                val absolutePath = path.resolve(targetDirectory)
+                val parent = path.dirname(absolutePath)
+                val parentWatcher = if (parent != absolutePath) {
                     // 監視対象が / でなければ監視対象の移動を検出するために親ディレクトリを監視する
-                    val targetName = path.basename(targetDirectory)
+                    val targetName = path.basename(absolutePath)
                     fs.watch(parent) { event: String, filename: String? ->
                         logger?.debug {
                             "fs.watch parent: event = $event, filename = $filename, target = $parent"
