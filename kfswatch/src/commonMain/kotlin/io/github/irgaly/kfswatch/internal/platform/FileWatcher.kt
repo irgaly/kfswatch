@@ -7,6 +7,7 @@ internal expect class FileWatcher(
     onEvent: (targetDirectory: String, path: String, event: FileWatcherEvent) -> Unit,
     onStart: (targetDirectory: String) -> Unit,
     onStop: (targetDirectory: String) -> Unit,
+    onOverflow: (targetDirectory: String?) -> Unit,
     onError: (targetDirectory: String?, message: String) -> Unit,
     logger: Logger? = null
 ) {

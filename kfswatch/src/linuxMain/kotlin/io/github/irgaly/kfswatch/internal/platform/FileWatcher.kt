@@ -71,6 +71,7 @@ internal actual class FileWatcher actual constructor(
     private val onEvent: (targetDirectory: String, path: String, event: FileWatcherEvent) -> Unit,
     private val onStart: (targetDirectory: String) -> Unit,
     private val onStop: (targetDirectory: String) -> Unit,
+    private val onOverflow: (targetDirectory: String?) -> Unit,
     private val onError: (targetDirectory: String?, message: String) -> Unit,
     private val logger: Logger?
 ) {
@@ -432,6 +433,13 @@ internal actual class FileWatcher actual constructor(
                                         // 監視対象が削除され inotify が停止した
                                         // 監視停止処理を実行する
                                         stop(listOf(targetDirectory))
+                                    }
+                                } else {
+                                    if ((mask and IN_Q_OVERFLOW) == IN_Q_OVERFLOW) {
+                                        // inotify queue 全体で、イベントがオーバーフローした
+                                        // このとき wq = -1 がセットされていて、
+                                        // targetDirectory は特定できない
+                                        onOverflow(null)
                                     }
                                 }
                                 offset += (sizeOf<inotify_event>() + info.len.toLong())

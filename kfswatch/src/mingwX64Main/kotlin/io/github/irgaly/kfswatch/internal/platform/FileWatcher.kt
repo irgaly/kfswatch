@@ -82,6 +82,7 @@ internal actual class FileWatcher actual constructor(
     private val onEvent: (targetDirectory: String, path: String, event: FileWatcherEvent) -> Unit,
     private val onStart: (targetDirectory: String) -> Unit,
     private val onStop: (targetDirectory: String) -> Unit,
+    private val onOverflow: (targetDirectory: String?) -> Unit,
     private val onError: (targetDirectory: String?, message: String) -> Unit,
     private val logger: Logger?
 ) {
@@ -460,11 +461,9 @@ internal actual class FileWatcher actual constructor(
                                 stop(listOf(target.key.originalPath))
                             } else {
                                 // イベントがオーバーフローした
-                                onError(
-                                    target.key.originalPath,
-                                    "ReadDirectoryChangesW buffer overflow: ${target.key.originalPath}"
-                                )
+                                // 監視対象ごとにバッファが割り当てられているため、個別にバッファオーバーフローが発生する
                                 logger?.debug { "ReadDirectoryChangesW buffer overflow: ${target.key.originalPath}\"" }
+                                onOverflow(target.key.originalPath)
                             }
                         } else {
                             var infoPointer = target.value.buffer.reinterpret<FILE_NOTIFY_INFORMATION>()

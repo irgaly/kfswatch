@@ -23,6 +23,7 @@ internal actual class FileWatcher actual constructor(
     private val onEvent: (targetDirectory: String, path: String, event: FileWatcherEvent) -> Unit,
     private val onStart: (targetDirectory: String) -> Unit,
     private val onStop: (targetDirectory: String) -> Unit,
+    private val onOverflow: (targetDirectory: String?) -> Unit,
     private val onError: (targetDirectory: String?, message: String) -> Unit,
     private val logger: Logger?
 ) {
@@ -102,25 +103,36 @@ internal actual class FileWatcher actual constructor(
                                 }
                                 // イベント発生と同時に stop() されると、targetDirectory = null はありえる
                                 if (targetDirectory != null) {
-                                    val path = (event.context() as Path).pathString
+                                    val path = (event.context() as? Path)?.pathString
                                     when (event.kind()) {
                                         StandardWatchEventKinds.ENTRY_CREATE -> {
-                                            onEvent(targetDirectory, path, FileWatcherEvent.Create)
+                                            onEvent(
+                                                targetDirectory,
+                                                checkNotNull(path),
+                                                FileWatcherEvent.Create
+                                            )
                                         }
 
                                         StandardWatchEventKinds.ENTRY_DELETE -> {
-                                            onEvent(targetDirectory, path, FileWatcherEvent.Delete)
+                                            onEvent(
+                                                targetDirectory,
+                                                checkNotNull(path),
+                                                FileWatcherEvent.Delete
+                                            )
                                         }
 
                                         StandardWatchEventKinds.ENTRY_MODIFY -> {
-                                            onEvent(targetDirectory, path, FileWatcherEvent.Modify)
+                                            onEvent(
+                                                targetDirectory,
+                                                checkNotNull(path),
+                                                FileWatcherEvent.Modify
+                                            )
                                         }
 
                                         StandardWatchEventKinds.OVERFLOW -> {
-                                            onError(
-                                                targetDirectory,
-                                                "Events overflowed: $targetDirectory"
-                                            )
+                                            // 監視 Key ごとにオーバーフローが発生
+                                            logger?.debug { "Events overflowed: $targetDirectory" }
+                                            onOverflow(targetDirectory)
                                         }
                                     }
                                 }
