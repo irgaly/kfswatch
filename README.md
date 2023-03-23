@@ -266,12 +266,14 @@ launch {
 KfsDirectoryWatcherRawEvent classes:
 
 ```kotlin
+// https://developer.android.com/reference/kotlin/android/os/FileObserver#onEvent(kotlin.Int,%20kotlin.String)
 data class AndroidFileObserverRawEvent(
   override val targetDirectory: String,
   val event: Int,
   override val path: String?
 ) : KfsDirectoryWatcherRawEvent
 
+// https://developer.apple.com/library/archive/documentation/System/Conceptual/ManPages_iPhoneOS/man2/kevent.2.html
 data class DarwinKernelQueuesRawEvent(
   val ident: ULong,
   val fflags: UInt,
@@ -282,6 +284,7 @@ data class DarwinKernelQueuesRawEvent(
   //...
 }
 
+// https://nodejs.org/api/fs.html#fswatchfilename-options-listener
 data class NodejsFswatchRawEvent(
   override val targetDirectory: String,
   val eventType: String,
@@ -290,6 +293,7 @@ data class NodejsFswatchRawEvent(
   //...
 }
 
+// https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/nio/file/WatchEvent.html
 data class JvmWatchServiceRawEvent(
   val kind: String,
   val count: Int,
@@ -299,6 +303,7 @@ data class JvmWatchServiceRawEvent(
   //...
 }
 
+// https://manpages.ubuntu.com/manpages/bionic/en/man7/inotify.7.html
 data class LinuxInotifyRawEvent(
   val wd: Int,
   val name: String,
@@ -309,6 +314,7 @@ data class LinuxInotifyRawEvent(
   //...
 }
 
+// https://learn.microsoft.com/en-us/windows/win32/api/winnt/ns-winnt-file_notify_information
 data class WindowsReadDirectoryRawEvent(
   override val targetDirectory: String,
   val action: UInt,
