@@ -87,6 +87,7 @@ internal actual class FileWatcher actual constructor(
     private val onStop: (targetDirectory: String) -> Unit,
     private val onOverflow: (targetDirectory: String?) -> Unit,
     private val onError: (targetDirectory: String?, message: String) -> Unit,
+    private val onRawEvent: ((event: FileWatcherRawEvent) -> Unit)?,
     private val logger: Logger?
 ) {
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -495,6 +496,15 @@ internal actual class FileWatcher actual constructor(
                                 val info = infoPointer.pointed
                                 val path = info.fileName()
                                 logger?.debug { "FILE_NOTIFY_INFORMATION event: ${info.toDebugString()}, targetDirectory=${target.key.originalPath}" }
+                                onRawEvent?.invoke(
+                                    FileWatcherRawEvent.WindowsReadDirectoryRawEvent(
+                                        targetDirectory = target.key.originalPath,
+                                        action = info.Action,
+                                        filename = info.fileName(),
+                                        filenameLength = info.FileNameLength,
+                                        nextEntryOffset = info.NextEntryOffset
+                                    )
+                                )
                                 // 監視対象とその子のイベントを検出
                                 when (info.Action.toInt()) {
                                     FILE_ACTION_ADDED,

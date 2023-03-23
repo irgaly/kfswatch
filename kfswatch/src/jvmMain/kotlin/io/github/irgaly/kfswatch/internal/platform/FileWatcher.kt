@@ -26,6 +26,7 @@ internal actual class FileWatcher actual constructor(
     private val onStop: (targetDirectory: String) -> Unit,
     private val onOverflow: (targetDirectory: String?) -> Unit,
     private val onError: (targetDirectory: String?, message: String) -> Unit,
+    private val onRawEvent: ((event: FileWatcherRawEvent) -> Unit)?,
     private val logger: Logger?
 ) {
     private val lock = ReentrantLock()
@@ -106,6 +107,14 @@ internal actual class FileWatcher actual constructor(
                                 logger?.debug {
                                     "WatchService: kind = ${event.kind()}, context = ${event.context()}, count = ${event.count()}"
                                 }
+                                onRawEvent?.invoke(
+                                    FileWatcherRawEvent.JvmWatchServiceRawEvent(
+                                        kind = event.kind().name(),
+                                        count = event.count(),
+                                        context = event.context(),
+                                        contextAsPathString = (event.context() as? Path)?.pathString
+                                    )
+                                )
                                 // イベント発生と同時に stop() されると、targetDirectory = null はありえる
                                 if (targetDirectory != null) {
                                     val path = (event.context() as? Path)?.pathString

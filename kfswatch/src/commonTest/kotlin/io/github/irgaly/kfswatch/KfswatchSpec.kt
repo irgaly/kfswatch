@@ -14,6 +14,7 @@ import io.kotest.matchers.collections.shouldBeIn
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.should
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeTypeOf
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
@@ -34,9 +35,12 @@ class KfswatchSpec : DescribeFunSpec({
         }
     }
 
-    fun TestScope.createWatcher(): KfsDirectoryWatcher {
+    fun TestScope.createWatcher(
+        rawEventEnabled: Boolean = false
+    ): KfsDirectoryWatcher {
         return KfsDirectoryWatcher(
             scope = this,
+            rawEventEnabled = rawEventEnabled,
             logger = logger
         )
     }
@@ -723,6 +727,47 @@ class KfswatchSpec : DescribeFunSpec({
             errors.ensureAllEventsConsumed()
             errors.cancel()
             watcher.close()
+        }
+    }
+    describe("onRawEventFlow") {
+        it("onRawEventFlow を受け取れる") {
+            val target = "$tempDirectory/raweventflow".also { mkdirs(it) }
+            val watcher = createWatcher(rawEventEnabled = true)
+            val errors = watcher.onErrorFlow.testIn(this)
+            watcher.onRawEventFlow.test(timeout = 5.seconds) {
+                watcher.addWait(target)
+                mkdirs("$target/dir")
+                val event = awaitItem()
+                when {
+                    Platform.isJvm -> {
+                        event.shouldBeTypeOf<KfsDirectoryWatcherRawEvent.JvmWatchServiceRawEvent>()
+                    }
+
+                    Platform.isNodejs -> {
+                        event.shouldBeTypeOf<KfsDirectoryWatcherRawEvent.NodejsFswatchRawEvent>()
+                    }
+
+                    Platform.isAndroid -> {
+                        event.shouldBeTypeOf<KfsDirectoryWatcherRawEvent.AndroidFileObserverRawEvent>()
+                    }
+
+                    (Platform.isIos || Platform.isMacos) -> {
+                        event.shouldBeTypeOf<KfsDirectoryWatcherRawEvent.DarwinKernelQueuesRawEvent>()
+                    }
+
+                    Platform.isLinux -> {
+                        event.shouldBeTypeOf<KfsDirectoryWatcherRawEvent.LinuxInotifyRawEvent>()
+                    }
+
+                    Platform.isWindows -> {
+                        event.shouldBeTypeOf<KfsDirectoryWatcherRawEvent.WindowsReadDirectoryRawEvent>()
+                    }
+                }
+            }
+            errors.ensureAllEventsConsumed()
+            errors.cancel()
+            watcher.close()
+
         }
     }
 })

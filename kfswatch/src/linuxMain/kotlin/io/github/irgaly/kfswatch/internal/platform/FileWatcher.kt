@@ -79,6 +79,7 @@ internal actual class FileWatcher actual constructor(
     private val onStop: (targetDirectory: String) -> Unit,
     private val onOverflow: (targetDirectory: String?) -> Unit,
     private val onError: (targetDirectory: String?, message: String) -> Unit,
+    private val onRawEvent: ((event: FileWatcherRawEvent) -> Unit)?,
     private val logger: Logger?
 ) {
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -429,6 +430,15 @@ internal actual class FileWatcher actual constructor(
                                 )
                                 val info = infoPointer.pointed
                                 logger?.debug { "inotify event: ${info.toDebugString()}" }
+                                onRawEvent?.invoke(
+                                    FileWatcherRawEvent.LinuxInotifyRawEvent(
+                                        wd = info.wd,
+                                        name = info.name.toKString(),
+                                        mask = info.mask,
+                                        len = info.len,
+                                        cookie = info.cookie
+                                    )
+                                )
                                 val targetDirectory = descriptorsToTargetDirectory[info.wd]
                                 val path = info.name.toKString()
                                 val mask = info.mask.toInt()
