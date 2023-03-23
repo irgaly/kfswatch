@@ -64,6 +64,7 @@ internal actual class FileWatcher actual constructor(
     private val logger: Logger?
 ) {
     private val lock = NSLock()
+    private val threadLock = NSLock()
     private val dispatchQueue = checkNotNull(
         dispatch_queue_create(
             label = "FileWatcher",
@@ -436,6 +437,9 @@ internal actual class FileWatcher actual constructor(
                     // スレッド終了
                     break
                 }
+                // threadLock が unlock されるまで通知を止める
+                threadLock.lock()
+                threadLock.unlock()
                 // イベント待機
                 val eventCount = kevent(
                     kq = checkNotNull(kqueue),
@@ -531,6 +535,14 @@ internal actual class FileWatcher actual constructor(
             }
             logger?.debug { "watchingThread() finished" }
         }
+    }
+
+    actual fun pause() {
+        threadLock.lock()
+    }
+
+    actual fun resume() {
+        threadLock.unlock()
     }
 
     actual fun close() {

@@ -14,6 +14,8 @@ internal expect class FileWatcher(
     fun start(targetDirectories: List<String>)
     fun stop(targetDirectories: List<String>)
     fun stopAll()
+    fun pause()
+    fun resume()
 
     /**
      * FileWatcher の無効化

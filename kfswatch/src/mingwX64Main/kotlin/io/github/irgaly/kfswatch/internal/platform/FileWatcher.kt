@@ -93,6 +93,11 @@ internal actual class FileWatcher actual constructor(
         InitializeCriticalSection(value.ptr)
         value.ptr
     }
+    private val threadCriticalSectionPointer: CPointer<CRITICAL_SECTION> by lazy {
+        val value = nativeHeap.alloc<CRITICAL_SECTION>()
+        InitializeCriticalSection(value.ptr)
+        value.ptr
+    }
     private var threadResource: ThreadResource? = null
     private val targetStatuses: LinkedHashMap<PlatformPath, WatchStatus> = linkedMapOf()
 
@@ -421,6 +426,9 @@ internal actual class FileWatcher actual constructor(
                     // スレッド終了
                     break
                 }
+                // threadMutex が unlock されるまで通知を止める
+                EnterCriticalSection(threadCriticalSectionPointer)
+                LeaveCriticalSection(threadCriticalSectionPointer)
                 val waitResult = memScoped {
                     val eventHandlesPointer = allocArrayOf(
                         listOf(checkNotNull(threadResetHandle))
@@ -526,6 +534,14 @@ internal actual class FileWatcher actual constructor(
         }
     }
 
+    actual fun pause() {
+        EnterCriticalSection(threadCriticalSectionPointer)
+    }
+
+    actual fun resume() {
+        LeaveCriticalSection(threadCriticalSectionPointer)
+    }
+
     actual fun close() {
         logger?.debug { "close()" }
         @OptIn(DelicateCoroutinesApi::class)
@@ -557,7 +573,9 @@ internal actual class FileWatcher actual constructor(
     private fun dispose() {
         logger?.debug { "dispose()" }
         DeleteCriticalSection(criticalSectionPointer)
+        DeleteCriticalSection(threadCriticalSectionPointer)
         nativeHeap.free(criticalSectionPointer)
+        nativeHeap.free(threadCriticalSectionPointer)
         dispatcher.close()
     }
 

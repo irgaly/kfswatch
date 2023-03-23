@@ -167,6 +167,33 @@ class KfsDirectoryWatcher(
         }
     }
 
+    /**
+     * Pause watcher thread
+     */
+    suspend fun pause() {
+        withContext(dispatcher) {
+            mutex.withLock {
+                if (closed) {
+                    error("This watcher instance is already closed")
+                }
+                watcher.pause()
+            }
+        }
+    }
+
+    /**
+     * Resume watcher thread
+     */
+    suspend fun resume() {
+        withContext(dispatcher) {
+            mutex.withLock {
+                if (closed) {
+                    error("This watcher instance is already closed")
+                }
+                watcher.resume()
+            }
+        }
+    }
 
     /**
      * Stop all watcher and dispose all file system resources

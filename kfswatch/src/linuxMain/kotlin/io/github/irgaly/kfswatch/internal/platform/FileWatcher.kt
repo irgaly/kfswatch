@@ -85,6 +85,14 @@ internal actual class FileWatcher actual constructor(
         )
         value.ptr
     }
+    private val threadMutex: CPointer<pthread_mutex_t> by lazy {
+        val value = nativeHeap.alloc<pthread_mutex_t>()
+        pthread_mutex_init(
+            __mutex = value.ptr,
+            __mutexattr = null
+        )
+        value.ptr
+    }
     private var threadResource: ThreadResource? = null
     private val targetStatuses: MutableMap<String, WatchStatus> = mutableMapOf()
 
@@ -362,6 +370,9 @@ internal actual class FileWatcher actual constructor(
                     // スレッド終了
                     break
                 }
+                // threadMutex が unlock されるまで通知を止める
+                pthread_mutex_lock(threadMutex)
+                pthread_mutex_unlock(threadMutex)
                 // イベント発生まで待機
                 val pollResult = poll(
                     __fds = pollDescriptors,
@@ -455,6 +466,14 @@ internal actual class FileWatcher actual constructor(
         }
     }
 
+    actual fun pause() {
+        pthread_mutex_lock(threadMutex)
+    }
+
+    actual fun resume() {
+        pthread_mutex_unlock(threadMutex)
+    }
+
     actual fun close() {
         logger?.debug { "close()" }
         // close() は非ブロッキング実装
@@ -488,7 +507,9 @@ internal actual class FileWatcher actual constructor(
     private fun dispose() {
         logger?.debug { "dispose()" }
         pthread_mutex_destroy(__mutex = mutex)
+        pthread_mutex_destroy(__mutex = threadMutex)
         nativeHeap.free(mutex)
+        nativeHeap.free(threadMutex)
         dispatcher.close()
     }
 

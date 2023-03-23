@@ -655,6 +655,66 @@ class KfswatchSpec : DescribeFunSpec({
             watcher.close()
         }
     }
+    describe("Overflow") {
+        it("Overflow イベントが発生する") {
+            val target = "$tempDirectory/overflow".also { mkdirs(it) }
+            val watcher = createWatcher()
+            val errors = watcher.onErrorFlow.testIn(this)
+            watcher.onOverflowFlow.test(timeout = 5.seconds) {
+                watcher.add(target)
+                when {
+                    Platform.isJvm -> {
+                        watcher.pause()
+                        // JVM は 5000 ~ 5500 イベント程度で Overflow する
+                        repeat(6000) {
+                            Files.writeFile("$target/file$it", "$it")
+                        }
+                        watcher.resume()
+                        awaitItem() shouldBe target
+                        cancelAndIgnoreRemainingEvents()
+                    }
+
+                    Platform.isWindows -> {
+                        watcher.pause()
+                        // Windows は 1000 イベント程度で Overflow する
+                        repeat(1000) {
+                            Files.writeFile("$target/file$it", "$it")
+                        }
+                        watcher.resume()
+                        awaitItem() shouldBe target
+                        cancelAndIgnoreRemainingEvents()
+                    }
+
+                    // 他のプラットフォームは Overflow が発生しないか、
+                    // 大量のイベントを発生させても Overflow が報告されないため
+                    // テストしない
+                }
+            }
+            errors.ensureAllEventsConsumed()
+            errors.cancel()
+            watcher.close()
+        }
+    }
+    describe("pause, resume") {
+        it("resume 後にイベントが流れる") {
+            val target = "$tempDirectory/resume".also { mkdirs(it) }
+            val watcher = createWatcher()
+            val errors = watcher.onErrorFlow.testIn(this)
+            watcher.onEventFlow.test(timeout = 5.seconds) {
+                watcher.add(target)
+                watcher.pause()
+                mkdirs("$target/dir")
+                // OS がファイルシステムのイベントを検出する程度の時間だけ待機させる
+                delay(100.milliseconds)
+                ensureAllEventsConsumed()
+                watcher.resume()
+                awaitEvent(KfsEvent.Create, "dir")
+            }
+            errors.ensureAllEventsConsumed()
+            errors.cancel()
+            watcher.close()
+        }
+    }
 })
 
 private data class Event(

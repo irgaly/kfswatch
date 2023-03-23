@@ -9,6 +9,7 @@ import java.nio.file.Path
 import java.nio.file.StandardWatchEventKinds
 import java.nio.file.WatchKey
 import java.nio.file.WatchService
+import java.util.concurrent.Semaphore
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.thread
 import kotlin.concurrent.withLock
@@ -28,6 +29,7 @@ internal actual class FileWatcher actual constructor(
     private val logger: Logger?
 ) {
     private val lock = ReentrantLock()
+    private val threadLock = Semaphore(1)
     private var watchService: WatchService? = null
     private val keys: MutableMap<PlatformPath, WatchKey> = mutableMapOf()
 
@@ -90,6 +92,9 @@ internal actual class FileWatcher actual constructor(
                             if (finishing) {
                                 break
                             }
+                            // threadLock が unlock されるまで通知を止める
+                            threadLock.acquire()
+                            threadLock.release()
                             // イベント発生までスレッド停止
                             val key = watchService.take()
                             val targetDirectory = lock.withLock {
@@ -194,6 +199,14 @@ internal actual class FileWatcher actual constructor(
             }
             keys.clear()
         }
+    }
+
+    actual fun pause() {
+        threadLock.acquire()
+    }
+
+    actual fun resume() {
+        threadLock.release()
     }
 
     actual fun close() {
