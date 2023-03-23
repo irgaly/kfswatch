@@ -182,6 +182,9 @@ class KfsDirectoryWatcher(
     /**
      * Pause watcher thread
      *
+     * Pausing watcher thread prevents only emitting events to flow, while
+     * it continues to watching directories.
+     *
      * * JVM: paused after next single event happened
      * * other: immediately paused
      */
