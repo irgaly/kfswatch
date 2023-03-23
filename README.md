@@ -163,32 +163,40 @@ val watcher: KfsDirectoryWatcher = KfsDirectoryWatcher(scope)
 watcher.add("path/to/directory")
 launch {
   watcher.onEventFlow.collect { event ->
-    if (event.event == KfsEvent.Create || event.event == KfsEvent.Modify) {
-      val file = File("${event.targetDirectory}/${event.path}")
-      val beforeExists = children.contains(event.path)
-      val exists = file.exists()
-      when {
-        (!beforeExists && exists) -> {
-          // When file is created
-          //...
-        }
-        (beforeExists && exists) -> {
-          // It seems the file is modified, overwritten or replaced
-          //...
-        }
+    val file = File("${event.targetDirectory}/${event.path}")
+    val beforeExists = children.contains(event.path)
+    val exists = file.exists()
+    when {
+      (!beforeExists && exists) -> {
+        // When file is created
+        //...
       }
-      // maintain the child entries
-      if (exists) {
-        children.add(event.path)
-      } else {
-        children.remove(event.pth)
+      (beforeExists && exists) -> {
+        // It seems the file is modified, overwritten or replaced
+        //...
       }
+    }
+    // maintain the child entries
+    if (exists) {
+      children.add(event.path)
+    } else {
+      children.remove(event.pth)
     }
   }
 }
-
-
 ```
+
+## Note: When watching directory's path changed
+
+Kfswatch assumes that watching directory is exist and that path will not be changed.
+If watching directory or it's parent directory have moved, the monitoring will continues or stops,
+that is platform specific behavior.
+
+If watching directories path changing is expected, it's recommended to watch the parent directory
+yourself.
+
+If you'd like to know platform specific behavior, please look at the test
+code [KfswatchSpec.kt](kfswatch/src/commonTest/kotlin/io/github/irgaly/kfswatch/KfswatchSpec.kt).
 
 ## KfsDirectoryWatcher Features
 
