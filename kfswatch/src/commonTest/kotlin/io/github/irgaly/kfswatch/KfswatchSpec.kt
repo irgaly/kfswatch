@@ -702,6 +702,11 @@ class KfswatchSpec : DescribeFunSpec({
             val errors = watcher.onErrorFlow.testIn(this)
             watcher.onEventFlow.test(timeout = 5.seconds) {
                 watcher.addWait(target)
+                if (Platform.isJvm) {
+                    // JVM では add 完了後から監視スレッド起動まで時間がかかるので
+                    // WatchService.take() で止まるまで十分な時間待つ
+                    delay(100.milliseconds)
+                }
                 watcher.pause()
                 if (Platform.isJvm) {
                     // JVM では pause() 後にイベントが一つだけ流れてから pause する
