@@ -712,6 +712,9 @@ class KfswatchSpec : DescribeFunSpec({
                     delay(100.milliseconds)
                 }
                 watcher.pause()
+                // pause() 後にスレッドリセット処理が確実に進むように待機する
+                // Linux では複数イベントが同時に通知されることがあるため、スレッドリセットを確実に優先させる
+                delay(100.milliseconds)
                 if (Platform.isJvm) {
                     // JVM では pause() 後にイベントが一つだけ流れてから pause する
                     mkdirs("$target/jvm_event1")
