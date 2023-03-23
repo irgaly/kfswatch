@@ -2,8 +2,9 @@
 kfswatch = "0.9.0"
 kotlin = "1.8.10"
 kotlinx-coroutines = "1.6.4"
-kotest = "5.5.1"
-gradle-android = "7.4.1"
+compose-compiler = "1.4.2"
+kotest = "5.5.4"
+gradle-android = "7.4.2"
 gradle-android-compile-sdk = "33"
 gradle-android-target-sdk = "33"
 gradle-android-min-sdk = "21"
@@ -13,10 +14,17 @@ gradle-multiplatform = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", v
 gradle-android = { module = "com.android.tools.build:gradle", version.ref = "gradle-android" }
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinx-coroutines" }
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "kotlinx-coroutines" }
+kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "kotlinx-coroutines" }
+androidx-appcompat = { module = "androidx.appcompat:appcompat", version = "1.6.1" }
+androidx-lifecycle = { module = "androidx.lifecycle:lifecycle-runtime-ktx", version = "2.6.1" }
+compose-bom = { group = "androidx.compose", name = "compose-bom", version = "2023.03.00" }
+compose-activity = { module = "androidx.activity:activity-compose", version = "1.7.0-beta01" }
+compose-material3 = { module = "androidx.compose.material3:material3" }
+compose-uiTooling = { module = "androidx.compose.ui:ui-tooling" }
 test-kotest-runner = { module = "io.kotest:kotest-runner-junit5", version.ref = "kotest" }
 test-kotest-assertions = { module = "io.kotest:kotest-assertions-core", version.ref = "kotest" }
 test-kotest-engine = { module = "io.kotest:kotest-framework-engine", version.ref = "kotest" }
-test-mockk = { module = "io.mockk:mockk", version = "1.13.2" }
+test-mockk = { module = "io.mockk:mockk", version = "1.13.4" }
 test-turbine = { module = "app.cash.turbine:turbine", version = "0.12.1" }
 test-android-junit5 = { module = "org.junit.jupiter:junit-jupiter-api", version = "5.9.2" }
 test-android-junit5-core = { module = "de.mannodermaus.junit5:android-test-core", version = "1.3.0" }
@@ -33,6 +41,7 @@ test-android-instrumented = [
     "test-kotest-assertions", "test-android-junit5", "test-android-junit5-core", "test-android-runner",
     "kotlinx-coroutines-test", "test-turbine"
 ]
+compose = ["compose-material3", "compose-uiTooling", "compose-activity"]
 
 [plugins]
 kotest-multiplatform = { id = "io.kotest.multiplatform", version.ref = "kotest" }
