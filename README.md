@@ -69,7 +69,7 @@ val watcher = KfsDirectoryWatcher(scope)
 
 // Add watching directories, and start watching
 watcher.add("path/to/watching/directory1")
-watcher.add("path/to/watching/directory2")
+watcher.add("path/to/watching/directory2", "path/to/watching/directory3", ...)
 
 // Observe events from Flow
 launch {
@@ -239,7 +239,7 @@ KfsDirectoryWatcher.onErrorFlow: Flow<KfsDirectoryWatcherError>
 KfsDirectoryWatcher.onRawEventFlow: Flow<KfsDirectoryWatcherRawEvent>
 ```
 
-## onRawEventFlow: Flow<KfsDirectoryWatcherRawEvent
+## onRawEventFlow: Flow<KfsDirectoryWatcherRawEvent>
 
 There is a File System's original events flow. This feature is for debugging or escape hatch.
 
@@ -252,18 +252,12 @@ val watcher: KfsDirectoryWatcher = KfsDirectoryWatcher(
 launch {
   watcher.onRawEventFlow.collect { event: KfsDirectoryWatcherRawEvent ->
     when (event) {
-      is AndroidFileObserverRawEvent -> { /* Android's FileObserver Event */
-      }
-      is DarwinKernelQueuesRawEvent -> { /* iOS/macOS's KernelQueue Event */
-      }
-      is NodejsFswatchRawEvent -> { /* Nodejs fs.watch Event */
-      }
-      is JvmWatchServiceRawEvent -> { /* JVM WatchService Event */
-      }
-      is LinuxInotifyRawEvent -> { /* Linux inotify Event */
-      }
-      is WindowsReadDirectoryRawEvent -> { /* Windows ReadDirectoryW Event */
-      }
+      is AndroidFileObserverRawEvent -> { /* Android's FileObserver Event */ }
+      is DarwinKernelQueuesRawEvent -> { /* iOS/macOS's KernelQueue Event */ }
+      is NodejsFswatchRawEvent -> { /* Nodejs fs.watch Event */ }
+      is JvmWatchServiceRawEvent -> { /* JVM WatchService Event */ }
+      is LinuxInotifyRawEvent -> { /* Linux inotify Event */ }
+      is WindowsReadDirectoryRawEvent -> { /* Windows ReadDirectoryW Event */ }
     }
   }
 }
