@@ -19,6 +19,7 @@ rootProject.name = "kfswatch-project"
 include(
     ":kfswatch",
     ":test",
-    ":sample"
+    ":sample",
+    ":sample:android"
 )
 includeBuild("build-logic")
