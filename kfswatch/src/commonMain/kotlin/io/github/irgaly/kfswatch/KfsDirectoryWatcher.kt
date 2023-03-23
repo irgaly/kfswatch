@@ -50,11 +50,13 @@ class KfsDirectoryWatcher(
     private val onEventMutableSharedFlow = MutableSharedFlow<KfsDirectoryWatcherEvent>()
     private val onStartMutableSharedFlow = MutableSharedFlow<String>()
     private val onStopMutableSharedFlow = MutableSharedFlow<String>()
+    private val onOverflowMutableSharedFlow = MutableSharedFlow<String?>()
     private val onErrorMutableSharedFlow = MutableSharedFlow<KfsDirectoryWatcherError>()
     private var watcher: FileWatcher = FileWatcher(
         onEvent = ::onEvent,
         onStart = ::onStart,
         onStop = ::onStop,
+        onOverflow = ::onOverflow,
         onError = ::onError,
         logger = logger?.let { BridgeLogger(it) }
     )
@@ -78,11 +80,28 @@ class KfsDirectoryWatcher(
     val onStartFlow: Flow<String> = onStartMutableSharedFlow.asSharedFlow()
 
     /**
-     * Start watching event flow
+     * Stop watching event flow
      *
      * String: a directory stopped watching
      */
     val onStopFlow: Flow<String> = onStopMutableSharedFlow.asSharedFlow()
+
+    /**
+     * Events overflowed
+     *
+     * String?: a directory stopped watching or null
+     *
+     * * JVM: WatchService: Overflow event. targetDirectory is not null
+     *     * WatchService has buffer, so Overflow has happen with many events (about 6000 events)
+     * * Nodejs: fs.watch: No overflow event
+     * * Android: FileObserver: No overflow event
+     * * iOS, macOS: Kernel Queues: No overflow event
+     * * Linux: inotify: Overflow event. targetDirectory is null
+     *     * inotify has Overflow event, but it's rarely happen
+     * * Windows: ReadDirectoryChangesW: Overflow event. targetDirectory is not null
+     *     * ReadDirectoryChangesW has buffer, so Overflow has happen with many events (about 1000 events)
+     */
+    val onOverflowFlow: Flow<String?> = onOverflowMutableSharedFlow.asSharedFlow()
 
     /**
      * Error event flow
@@ -148,6 +167,36 @@ class KfsDirectoryWatcher(
         }
     }
 
+    /**
+     * Pause watcher thread
+     *
+     * * JVM: paused after next single event happened
+     * * other: immediately paused
+     */
+    suspend fun pause() {
+        withContext(dispatcher) {
+            mutex.withLock {
+                if (closed) {
+                    error("This watcher instance is already closed")
+                }
+                watcher.pause()
+            }
+        }
+    }
+
+    /**
+     * Resume watcher thread
+     */
+    suspend fun resume() {
+        withContext(dispatcher) {
+            mutex.withLock {
+                if (closed) {
+                    error("This watcher instance is already closed")
+                }
+                watcher.resume()
+            }
+        }
+    }
 
     /**
      * Stop all watcher and dispose all file system resources
@@ -196,6 +245,13 @@ class KfsDirectoryWatcher(
                 watchingDirectories = watchingDirectories - targetDirectory
             }
             onStopMutableSharedFlow.emit(targetDirectory)
+        }
+    }
+
+    private fun onOverflow(targetDirectory: String?) {
+        scope.launch(dispatcher) {
+            logger?.debug("onOverflow: target=$targetDirectory")
+            onOverflowMutableSharedFlow.emit(targetDirectory)
         }
     }
 

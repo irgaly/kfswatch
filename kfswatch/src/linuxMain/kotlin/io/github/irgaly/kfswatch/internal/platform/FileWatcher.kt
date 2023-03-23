@@ -58,6 +58,12 @@ import platform.posix.pthread_mutex_lock
 import platform.posix.pthread_mutex_t
 import platform.posix.pthread_mutex_unlock
 import platform.posix.read
+import platform.posix.sem_destroy
+import platform.posix.sem_init
+import platform.posix.sem_post
+import platform.posix.sem_t
+import platform.posix.sem_trywait
+import platform.posix.sem_wait
 import platform.posix.stat
 import platform.posix.strerror
 import platform.posix.write
@@ -71,6 +77,7 @@ internal actual class FileWatcher actual constructor(
     private val onEvent: (targetDirectory: String, path: String, event: FileWatcherEvent) -> Unit,
     private val onStart: (targetDirectory: String) -> Unit,
     private val onStop: (targetDirectory: String) -> Unit,
+    private val onOverflow: (targetDirectory: String?) -> Unit,
     private val onError: (targetDirectory: String?, message: String) -> Unit,
     private val logger: Logger?
 ) {
@@ -81,6 +88,15 @@ internal actual class FileWatcher actual constructor(
         pthread_mutex_init(
             __mutex = value.ptr,
             __mutexattr = null
+        )
+        value.ptr
+    }
+    private val threadSemaphore: CPointer<sem_t> by lazy {
+        val value = nativeHeap.alloc<sem_t>()
+        sem_init(
+            __sem = value.ptr,
+            __pshared = 0, /* 同一プロセス内セマフォ */
+            __value = 1 /* セマフォ初期値はロック可能 */
         )
         value.ptr
     }
@@ -361,6 +377,9 @@ internal actual class FileWatcher actual constructor(
                     // スレッド終了
                     break
                 }
+                // threadMutex が unlock されるまで通知を止める
+                sem_wait(__sem = threadSemaphore)
+                sem_post(__sem = threadSemaphore)
                 // イベント発生まで待機
                 val pollResult = poll(
                     __fds = pollDescriptors,
@@ -433,6 +452,13 @@ internal actual class FileWatcher actual constructor(
                                         // 監視停止処理を実行する
                                         stop(listOf(targetDirectory))
                                     }
+                                } else {
+                                    if ((mask and IN_Q_OVERFLOW) == IN_Q_OVERFLOW) {
+                                        // inotify queue 全体で、イベントがオーバーフローした
+                                        // このとき wq = -1 がセットされていて、
+                                        // targetDirectory は特定できない
+                                        onOverflow(null)
+                                    }
                                 }
                                 offset += (sizeOf<inotify_event>() + info.len.toLong())
                             }
@@ -445,6 +471,24 @@ internal actual class FileWatcher actual constructor(
                 dispose()
             }
         }
+    }
+
+    actual fun pause() {
+        val result = sem_trywait(__sem = threadSemaphore)
+        if (result == 0) {
+            // ロックされていない状態からロックされた
+            // スレッドのリセット指示
+            logger?.debug { "send thread reset for pause" }
+            write(
+                __fd = checkNotNull(threadResource).threadResetPipeDescriptors.second,
+                __buf = cValuesOf(0.toByte()),
+                __n = 1
+            )
+        }
+    }
+
+    actual fun resume() {
+        sem_post(__sem = threadSemaphore)
     }
 
     actual fun close() {
@@ -480,7 +524,9 @@ internal actual class FileWatcher actual constructor(
     private fun dispose() {
         logger?.debug { "dispose()" }
         pthread_mutex_destroy(__mutex = mutex)
+        sem_destroy(__sem = threadSemaphore)
         nativeHeap.free(mutex)
+        nativeHeap.free(threadSemaphore)
         dispatcher.close()
     }
 

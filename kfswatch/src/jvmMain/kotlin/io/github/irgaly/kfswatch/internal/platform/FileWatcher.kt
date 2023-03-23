@@ -9,6 +9,7 @@ import java.nio.file.Path
 import java.nio.file.StandardWatchEventKinds
 import java.nio.file.WatchKey
 import java.nio.file.WatchService
+import java.util.concurrent.Semaphore
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.thread
 import kotlin.concurrent.withLock
@@ -23,10 +24,12 @@ internal actual class FileWatcher actual constructor(
     private val onEvent: (targetDirectory: String, path: String, event: FileWatcherEvent) -> Unit,
     private val onStart: (targetDirectory: String) -> Unit,
     private val onStop: (targetDirectory: String) -> Unit,
+    private val onOverflow: (targetDirectory: String?) -> Unit,
     private val onError: (targetDirectory: String?, message: String) -> Unit,
     private val logger: Logger?
 ) {
     private val lock = ReentrantLock()
+    private val threadLock = Semaphore(1)
     private var watchService: WatchService? = null
     private val keys: MutableMap<PlatformPath, WatchKey> = mutableMapOf()
 
@@ -89,6 +92,9 @@ internal actual class FileWatcher actual constructor(
                             if (finishing) {
                                 break
                             }
+                            // threadLock が unlock されるまで通知を止める
+                            threadLock.acquire()
+                            threadLock.release()
                             // イベント発生までスレッド停止
                             val key = watchService.take()
                             val targetDirectory = lock.withLock {
@@ -102,25 +108,36 @@ internal actual class FileWatcher actual constructor(
                                 }
                                 // イベント発生と同時に stop() されると、targetDirectory = null はありえる
                                 if (targetDirectory != null) {
-                                    val path = (event.context() as Path).pathString
+                                    val path = (event.context() as? Path)?.pathString
                                     when (event.kind()) {
                                         StandardWatchEventKinds.ENTRY_CREATE -> {
-                                            onEvent(targetDirectory, path, FileWatcherEvent.Create)
+                                            onEvent(
+                                                targetDirectory,
+                                                checkNotNull(path),
+                                                FileWatcherEvent.Create
+                                            )
                                         }
 
                                         StandardWatchEventKinds.ENTRY_DELETE -> {
-                                            onEvent(targetDirectory, path, FileWatcherEvent.Delete)
+                                            onEvent(
+                                                targetDirectory,
+                                                checkNotNull(path),
+                                                FileWatcherEvent.Delete
+                                            )
                                         }
 
                                         StandardWatchEventKinds.ENTRY_MODIFY -> {
-                                            onEvent(targetDirectory, path, FileWatcherEvent.Modify)
+                                            onEvent(
+                                                targetDirectory,
+                                                checkNotNull(path),
+                                                FileWatcherEvent.Modify
+                                            )
                                         }
 
                                         StandardWatchEventKinds.OVERFLOW -> {
-                                            onError(
-                                                targetDirectory,
-                                                "Events overflowed: $targetDirectory"
-                                            )
+                                            // 監視 Key ごとにオーバーフローが発生
+                                            logger?.debug { "Events overflowed: $targetDirectory" }
+                                            onOverflow(targetDirectory)
                                         }
                                     }
                                 }
@@ -182,6 +199,17 @@ internal actual class FileWatcher actual constructor(
             }
             keys.clear()
         }
+    }
+
+    actual fun pause() {
+        // ロックされていればそのまま。ロックされていなければロックする
+        // pause 後に WatchService.take() を一回スキップさせたいがその手段がない
+        // pause 後の1回だけイベントは通知される
+        threadLock.tryAcquire()
+    }
+
+    actual fun resume() {
+        threadLock.release()
     }
 
     actual fun close() {

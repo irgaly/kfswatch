@@ -8,6 +8,7 @@ import android.os.FileObserver.MODIFY
 import android.os.FileObserver.MOVED_FROM
 import android.os.FileObserver.MOVED_TO
 import java.io.File
+import java.util.concurrent.Semaphore
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.thread
 import kotlin.concurrent.withLock
@@ -21,10 +22,12 @@ internal actual class FileWatcher actual constructor(
     private val onEvent: (targetDirectory: String, path: String, event: FileWatcherEvent) -> Unit,
     private val onStart: (targetDirectory: String) -> Unit,
     private val onStop: (targetDirectory: String) -> Unit,
+    private val onOverflow: (targetDirectory: String?) -> Unit,
     private val onError: (targetDirectory: String?, message: String) -> Unit,
     private val logger: Logger?
 ) {
     private val lock = ReentrantLock()
+    private val threadLock = Semaphore(1)
     private val observers: MutableMap<String, FileObserver> = mutableMapOf()
 
     actual fun start(targetDirectories: List<String>) {
@@ -50,6 +53,9 @@ internal actual class FileWatcher actual constructor(
                             MOVED_TO or // 子の移動
                             MODIFY // 子の変更
                 fun handleEvent(event: Int, path: String?) {
+                    // threadLock が unlock されるまで通知を止める
+                    threadLock.acquire()
+                    threadLock.release()
                     logger?.debug {
                         "FileObserver.onEvent: event = ${event.toString(16)}, path = $path"
                     }
@@ -122,6 +128,15 @@ internal actual class FileWatcher actual constructor(
             }
             observers.clear()
         }
+    }
+
+    actual fun pause() {
+        // ロックされていればそのまま。ロックされていなければロックする
+        threadLock.tryAcquire()
+    }
+
+    actual fun resume() {
+        threadLock.release()
     }
 
     actual fun close() {

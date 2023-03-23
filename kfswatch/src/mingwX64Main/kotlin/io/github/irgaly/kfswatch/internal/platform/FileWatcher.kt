@@ -26,6 +26,7 @@ import platform.windows.CancelIo
 import platform.windows.CloseHandle
 import platform.windows.CreateEventW
 import platform.windows.CreateFileW
+import platform.windows.CreateSemaphoreW
 import platform.windows.DWORDVar
 import platform.windows.DeleteCriticalSection
 import platform.windows.ERROR_OPERATION_ABORTED
@@ -66,12 +67,14 @@ import platform.windows.MAXIMUM_WAIT_OBJECTS
 import platform.windows.OPEN_EXISTING
 import platform.windows.OVERLAPPED
 import platform.windows.ReadDirectoryChangesW
+import platform.windows.ReleaseSemaphore
 import platform.windows.ResetEvent
 import platform.windows.SetEvent
 import platform.windows.TRUE
 import platform.windows.WAIT_OBJECT_0
 import platform.windows.WCHARVar
 import platform.windows.WaitForMultipleObjects
+import platform.windows.WaitForSingleObject
 
 /**
  * ReadDirectoryChangesW
@@ -82,6 +85,7 @@ internal actual class FileWatcher actual constructor(
     private val onEvent: (targetDirectory: String, path: String, event: FileWatcherEvent) -> Unit,
     private val onStart: (targetDirectory: String) -> Unit,
     private val onStop: (targetDirectory: String) -> Unit,
+    private val onOverflow: (targetDirectory: String?) -> Unit,
     private val onError: (targetDirectory: String?, message: String) -> Unit,
     private val logger: Logger?
 ) {
@@ -91,6 +95,16 @@ internal actual class FileWatcher actual constructor(
         val value = nativeHeap.alloc<CRITICAL_SECTION>()
         InitializeCriticalSection(value.ptr)
         value.ptr
+    }
+    private val threadSemaphoreHandle: HANDLE by lazy {
+        checkNotNull(
+            CreateSemaphoreW(
+                lpSemaphoreAttributes = null,
+                lInitialCount = 1,
+                lMaximumCount = 1,
+                lpName = null
+            )
+        )
     }
     private var threadResource: ThreadResource? = null
     private val targetStatuses: LinkedHashMap<PlatformPath, WatchStatus> = linkedMapOf()
@@ -276,6 +290,7 @@ internal actual class FileWatcher actual constructor(
                         }
                         val targetPath = entry.first
                         if (finishing || disposing) {
+                            logger?.debug { "finishing" }
                             // 終了処理
                             when (entry.second.state) {
                                 WatchState.Adding -> {
@@ -420,6 +435,16 @@ internal actual class FileWatcher actual constructor(
                     // スレッド終了
                     break
                 }
+                // threadMutex が unlock されるまで通知を止める
+                WaitForSingleObject(
+                    hHandle = threadSemaphoreHandle,
+                    dwMilliseconds = INFINITE
+                )
+                ReleaseSemaphore(
+                    hSemaphore = threadSemaphoreHandle,
+                    lReleaseCount = 1,
+                    lpPreviousCount = null
+                )
                 val waitResult = memScoped {
                     val eventHandlesPointer = allocArrayOf(
                         listOf(checkNotNull(threadResetHandle))
@@ -460,11 +485,9 @@ internal actual class FileWatcher actual constructor(
                                 stop(listOf(target.key.originalPath))
                             } else {
                                 // イベントがオーバーフローした
-                                onError(
-                                    target.key.originalPath,
-                                    "ReadDirectoryChangesW buffer overflow: ${target.key.originalPath}"
-                                )
+                                // 監視対象ごとにバッファが割り当てられているため、個別にバッファオーバーフローが発生する
                                 logger?.debug { "ReadDirectoryChangesW buffer overflow: ${target.key.originalPath}\"" }
+                                onOverflow(target.key.originalPath)
                             }
                         } else {
                             var infoPointer = target.value.buffer.reinterpret<FILE_NOTIFY_INFORMATION>()
@@ -527,6 +550,27 @@ internal actual class FileWatcher actual constructor(
         }
     }
 
+    actual fun pause() {
+        val result = WaitForSingleObject(
+            hHandle = threadSemaphoreHandle,
+            dwMilliseconds = 0
+        )
+        if (result == WAIT_OBJECT_0) {
+            // ロックされていない状態からロックされた
+            // スレッドのリセット指示
+            logger?.debug { "send thread reset for pause" }
+            SetEvent(checkNotNull(threadResource).threadResetHandle)
+        }
+    }
+
+    actual fun resume() {
+        ReleaseSemaphore(
+            hSemaphore = threadSemaphoreHandle,
+            lReleaseCount = 1,
+            lpPreviousCount = null
+        )
+    }
+
     actual fun close() {
         logger?.debug { "close()" }
         @OptIn(DelicateCoroutinesApi::class)
@@ -558,6 +602,7 @@ internal actual class FileWatcher actual constructor(
     private fun dispose() {
         logger?.debug { "dispose()" }
         DeleteCriticalSection(criticalSectionPointer)
+        CloseHandle(threadSemaphoreHandle)
         nativeHeap.free(criticalSectionPointer)
         dispatcher.close()
     }
