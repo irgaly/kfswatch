@@ -58,6 +58,12 @@ import platform.posix.pthread_mutex_lock
 import platform.posix.pthread_mutex_t
 import platform.posix.pthread_mutex_unlock
 import platform.posix.read
+import platform.posix.sem_destroy
+import platform.posix.sem_init
+import platform.posix.sem_post
+import platform.posix.sem_t
+import platform.posix.sem_trywait
+import platform.posix.sem_wait
 import platform.posix.stat
 import platform.posix.strerror
 import platform.posix.write
@@ -85,11 +91,12 @@ internal actual class FileWatcher actual constructor(
         )
         value.ptr
     }
-    private val threadMutex: CPointer<pthread_mutex_t> by lazy {
-        val value = nativeHeap.alloc<pthread_mutex_t>()
-        pthread_mutex_init(
-            __mutex = value.ptr,
-            __mutexattr = null
+    private val threadSemaphore: CPointer<sem_t> by lazy {
+        val value = nativeHeap.alloc<sem_t>()
+        sem_init(
+            __sem = value.ptr,
+            __pshared = 0, /* 同一プロセス内セマフォ */
+            __value = 1 /* セマフォ初期値はロック可能 */
         )
         value.ptr
     }
@@ -371,8 +378,8 @@ internal actual class FileWatcher actual constructor(
                     break
                 }
                 // threadMutex が unlock されるまで通知を止める
-                pthread_mutex_lock(threadMutex)
-                pthread_mutex_unlock(threadMutex)
+                sem_wait(__sem = threadSemaphore)
+                sem_post(__sem = threadSemaphore)
                 // イベント発生まで待機
                 val pollResult = poll(
                     __fds = pollDescriptors,
@@ -467,11 +474,21 @@ internal actual class FileWatcher actual constructor(
     }
 
     actual fun pause() {
-        pthread_mutex_lock(threadMutex)
+        val result = sem_trywait(__sem = threadSemaphore)
+        if (result == 0) {
+            // ロックされていない状態からロックされた
+            // スレッドのリセット指示
+            logger?.debug { "send thread reset for pause" }
+            write(
+                __fd = checkNotNull(threadResource).threadResetPipeDescriptors.second,
+                __buf = cValuesOf(0.toByte()),
+                __n = 1
+            )
+        }
     }
 
     actual fun resume() {
-        pthread_mutex_unlock(threadMutex)
+        sem_post(__sem = threadSemaphore)
     }
 
     actual fun close() {
@@ -507,9 +524,9 @@ internal actual class FileWatcher actual constructor(
     private fun dispose() {
         logger?.debug { "dispose()" }
         pthread_mutex_destroy(__mutex = mutex)
-        pthread_mutex_destroy(__mutex = threadMutex)
+        sem_destroy(__sem = threadSemaphore)
         nativeHeap.free(mutex)
-        nativeHeap.free(threadMutex)
+        nativeHeap.free(threadSemaphore)
         dispatcher.close()
     }
 

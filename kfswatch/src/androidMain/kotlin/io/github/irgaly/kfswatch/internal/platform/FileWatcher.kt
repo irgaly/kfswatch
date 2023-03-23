@@ -131,7 +131,8 @@ internal actual class FileWatcher actual constructor(
     }
 
     actual fun pause() {
-        threadLock.acquire()
+        // ロックされていればそのまま。ロックされていなければロックする
+        threadLock.tryAcquire()
     }
 
     actual fun resume() {

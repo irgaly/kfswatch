@@ -661,7 +661,7 @@ class KfswatchSpec : DescribeFunSpec({
             val watcher = createWatcher()
             val errors = watcher.onErrorFlow.testIn(this)
             watcher.onOverflowFlow.test(timeout = 5.seconds) {
-                watcher.add(target)
+                watcher.addWait(target)
                 when {
                     Platform.isJvm -> {
                         watcher.pause()
@@ -701,8 +701,13 @@ class KfswatchSpec : DescribeFunSpec({
             val watcher = createWatcher()
             val errors = watcher.onErrorFlow.testIn(this)
             watcher.onEventFlow.test(timeout = 5.seconds) {
-                watcher.add(target)
+                watcher.addWait(target)
                 watcher.pause()
+                if (Platform.isJvm) {
+                    // JVM では pause() 後にイベントが一つだけ流れてから pause する
+                    mkdirs("$target/jvm_event1")
+                    awaitEvent(KfsEvent.Create, "jvm_event1")
+                }
                 mkdirs("$target/dir")
                 // OS がファイルシステムのイベントを検出する程度の時間だけ待機させる
                 delay(100.milliseconds)

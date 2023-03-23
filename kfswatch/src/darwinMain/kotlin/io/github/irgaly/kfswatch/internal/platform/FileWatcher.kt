@@ -21,6 +21,8 @@ import platform.Foundation.NSLock
 import platform.Foundation.NSString
 import platform.darwin.DISPATCH_QUEUE_PRIORITY_DEFAULT
 import platform.darwin.DISPATCH_QUEUE_SERIAL
+import platform.darwin.DISPATCH_TIME_FOREVER
+import platform.darwin.DISPATCH_TIME_NOW
 import platform.darwin.EVFILT_READ
 import platform.darwin.EVFILT_VNODE
 import platform.darwin.EV_ADD
@@ -38,10 +40,14 @@ import platform.darwin.dispatch_async
 import platform.darwin.dispatch_get_global_queue
 import platform.darwin.dispatch_queue_create
 import platform.darwin.dispatch_queue_t
+import platform.darwin.dispatch_semaphore_create
+import platform.darwin.dispatch_semaphore_signal
+import platform.darwin.dispatch_semaphore_wait
 import platform.darwin.kevent
 import platform.darwin.kqueue
 import platform.posix.O_EVTONLY
 import platform.posix.errno
+import platform.posix.intptr_t
 import platform.posix.open
 import platform.posix.pipe
 import platform.posix.read
@@ -64,7 +70,7 @@ internal actual class FileWatcher actual constructor(
     private val logger: Logger?
 ) {
     private val lock = NSLock()
-    private val threadLock = NSLock()
+    private val threadLock = dispatch_semaphore_create(1)
     private val dispatchQueue = checkNotNull(
         dispatch_queue_create(
             label = "FileWatcher",
@@ -76,7 +82,7 @@ internal actual class FileWatcher actual constructor(
 
     private data class ThreadResource(
         val kqueue: Int,
-        val threadResetPipeDescriptors: Pair<Int, Int>,
+        val threadResetPipeDescriptors: Pair<Int, Int>
     )
 
     private data class WatchStatus(
@@ -438,8 +444,8 @@ internal actual class FileWatcher actual constructor(
                     break
                 }
                 // threadLock が unlock されるまで通知を止める
-                threadLock.lock()
-                threadLock.unlock()
+                dispatch_semaphore_wait(threadLock, DISPATCH_TIME_FOREVER)
+                dispatch_semaphore_signal(threadLock)
                 // イベント待機
                 val eventCount = kevent(
                     kq = checkNotNull(kqueue),
@@ -538,11 +544,21 @@ internal actual class FileWatcher actual constructor(
     }
 
     actual fun pause() {
-        threadLock.lock()
+        val result = dispatch_semaphore_wait(threadLock, DISPATCH_TIME_NOW)
+        if (result == 0.convert<intptr_t>()) {
+            // ロックされていない状態からロックした
+            // スレッドのリセット指示
+            logger?.debug { "send thread reset for pause" }
+            write(
+                __fd = checkNotNull(threadResource).threadResetPipeDescriptors.second,
+                __buf = cValuesOf(0.toByte()),
+                __nbyte = 1
+            )
+        }
     }
 
     actual fun resume() {
-        threadLock.unlock()
+        dispatch_semaphore_signal(threadLock)
     }
 
     actual fun close() {
@@ -580,7 +596,7 @@ internal actual class FileWatcher actual constructor(
             } else {
                 val event = alloc<kevent>()
                 event.apply {
-                    ident = descriptor.convert<uintptr_t>()
+                    ident = descriptor.convert()
                     filter = EVFILT_VNODE.toShort()
                     flags = (
                             EV_ADD or // イベント追加
@@ -622,7 +638,7 @@ internal actual class FileWatcher actual constructor(
             } else {
                 val event = alloc<kevent>()
                 event.apply {
-                    ident = descriptor.convert<uintptr_t>()
+                    ident = descriptor.convert()
                     filter = EVFILT_VNODE.toShort()
                     flags = (
                         EV_ADD or // イベント追加
@@ -657,7 +673,7 @@ internal actual class FileWatcher actual constructor(
         memScoped {
             val event = alloc<kevent>()
             event.apply {
-                ident = descriptor.convert<uintptr_t>()
+                ident = descriptor.convert()
                 filter = EVFILT_VNODE.toShort()
                 flags = EV_DELETE.toUShort()
                 fflags = 0U

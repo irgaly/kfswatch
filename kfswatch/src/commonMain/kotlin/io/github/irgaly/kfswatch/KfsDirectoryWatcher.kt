@@ -169,6 +169,9 @@ class KfsDirectoryWatcher(
 
     /**
      * Pause watcher thread
+     *
+     * * JVM: paused after next single event happened
+     * * other: immediately paused
      */
     suspend fun pause() {
         withContext(dispatcher) {
