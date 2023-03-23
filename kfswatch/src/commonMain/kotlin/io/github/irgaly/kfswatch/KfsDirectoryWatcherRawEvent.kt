@@ -30,7 +30,7 @@ sealed interface KfsDirectoryWatcherRawEvent {
                 is FileWatcherRawEvent.NodejsFswatchRawEvent -> {
                     NodejsFswatchRawEvent(
                         targetDirectory = event.targetDirectory,
-                        event = event.event,
+                        eventType = event.eventType,
                         filename = event.filename
                     )
                 }
@@ -111,7 +111,7 @@ sealed interface KfsDirectoryWatcherRawEvent {
      */
     data class NodejsFswatchRawEvent(
         override val targetDirectory: String,
-        val event: String,
+        val eventType: String,
         val filename: String?
     ) : KfsDirectoryWatcherRawEvent {
         override val path: String? = filename

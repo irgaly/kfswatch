@@ -93,7 +93,7 @@ class KfsDirectoryWatcher(
     /**
      * Events overflowed
      *
-     * String?: a directory stopped watching or null
+     * String?: a watching directory or null
      *
      * * JVM: WatchService: Overflow event. targetDirectory is not null
      *     * WatchService has buffer, so Overflow has happen with many events (about 6000 events)
@@ -181,6 +181,9 @@ class KfsDirectoryWatcher(
 
     /**
      * Pause watcher thread
+     *
+     * Pausing watcher thread prevents only emitting events to flow, while
+     * it continues to watching directories.
      *
      * * JVM: paused after next single event happened
      * * other: immediately paused
