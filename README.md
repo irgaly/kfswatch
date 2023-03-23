@@ -6,7 +6,13 @@ Kotlin Multiplatform File System Watcher Library.
 
 * A Kotlin Multiplatform library
 * Support all platforms
-  * JVM, Nodejs, Android, iOS, macOS, Linux, Windows
+  * JVM - macOS, Linux, Windows
+  * Nodejs - macOS, Linux, Windows
+  * Android
+  * Native iOS
+  * Native macOS
+  * Native Linux
+  * Native Windows
 * Watching multiple directories
 * Receiving File Events as Flow
 
@@ -81,7 +87,7 @@ watcher.close() // or scope.cancel() will trigger watcher.close() automatically
 
 ## File System Events
 
-Kfswatch supports all platforms, so it supports only simple and rough events.
+Kfswatch supports all platforms, so it supports only simple events.
 
 Kfswatch **does not support recursive directory watching**. Only watching directory's child entry
 events will be reported.
@@ -110,6 +116,8 @@ data class KfsDirectoryWatcherEvent(
 | KfsEvent.Create | Watching directory's child file or directory entry has created. |
 | KfsEvent.Delete | Watching directory's child file or directory entry has deleted. |
 | KfsEvent.Modify | Watching directory's child file's content has changed.          |
+
+There are no events for watching directory itself.
 
 ## Note: Reliability of Events
 
@@ -229,6 +237,93 @@ KfsDirectoryWatcher.onErrorFlow: Flow<KfsDirectoryWatcherError>
 
 // File System's raw events for debugging
 KfsDirectoryWatcher.onRawEventFlow: Flow<KfsDirectoryWatcherRawEvent>
+```
+
+## onRawEventFlow: Flow<KfsDirectoryWatcherRawEvent
+
+There is a File System's original events flow. This feature is for debugging or escape hatch.
+
+```kotlin
+val watcher: KfsDirectoryWatcher = KfsDirectoryWatcher(
+  scope = scope,
+  // This is needed for onRawEventFlow enabled
+  rawEventEnabled = true
+)
+launch {
+  watcher.onRawEventFlow.collect { event: KfsDirectoryWatcherRawEvent ->
+    when (event) {
+      is AndroidFileObserverRawEvent -> { /* Android's FileObserver Event */
+      }
+      is DarwinKernelQueuesRawEvent -> { /* iOS/macOS's KernelQueue Event */
+      }
+      is NodejsFswatchRawEvent -> { /* Nodejs fs.watch Event */
+      }
+      is JvmWatchServiceRawEvent -> { /* JVM WatchService Event */
+      }
+      is LinuxInotifyRawEvent -> { /* Linux inotify Event */
+      }
+      is WindowsReadDirectoryRawEvent -> { /* Windows ReadDirectoryW Event */
+      }
+    }
+  }
+}
+```
+
+KfsDirectoryWatcherRawEvent classes:
+
+```kotlin
+data class AndroidFileObserverRawEvent(
+  override val targetDirectory: String,
+  val event: Int,
+  override val path: String?
+) : KfsDirectoryWatcherRawEvent
+
+data class DarwinKernelQueuesRawEvent(
+  val ident: ULong,
+  val fflags: UInt,
+  val filter: Short,
+  val flags: UShort,
+  val udata: ULong?
+) : KfsDirectoryWatcherRawEvent {
+  //...
+}
+
+data class NodejsFswatchRawEvent(
+  override val targetDirectory: String,
+  val event: String,
+  val filename: String?
+) : KfsDirectoryWatcherRawEvent {
+  //...
+}
+
+data class JvmWatchServiceRawEvent(
+  val kind: String,
+  val count: Int,
+  val context: Any,
+  val contextAsPathString: String?
+) : KfsDirectoryWatcherRawEvent {
+  //...
+}
+
+data class LinuxInotifyRawEvent(
+  val wd: Int,
+  val name: String,
+  val mask: UInt,
+  val len: UInt,
+  val cookie: UInt
+) : KfsDirectoryWatcherRawEvent {
+  //...
+}
+
+data class WindowsReadDirectoryRawEvent(
+  override val targetDirectory: String,
+  val action: UInt,
+  val filename: String,
+  val filenameLength: UInt,
+  val nextEntryOffset: UInt
+) : KfsDirectoryWatcherRawEvent {
+  //...
+}
 ```
 
 # Multiplatform
