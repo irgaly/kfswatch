@@ -9,6 +9,7 @@ internal expect class FileWatcher(
     onStop: (targetDirectory: String) -> Unit,
     onOverflow: (targetDirectory: String?) -> Unit,
     onError: (targetDirectory: String?, message: String) -> Unit,
+    onRawEvent: ((event: FileWatcherRawEvent) -> Unit)?,
     logger: Logger? = null
 ) {
     fun start(targetDirectories: List<String>)
@@ -54,4 +55,49 @@ internal enum class FileWatcherEvent {
      * Child file's data has changed
      */
     Modify
+}
+
+internal sealed interface FileWatcherRawEvent {
+    data class AndroidFileObserverRawEvent(
+        val targetDirectory: String,
+        val event: Int,
+        val path: String?
+    ) : FileWatcherRawEvent
+
+    data class DarwinKernelQueuesRawEvent(
+        val ident: ULong,
+        val fflags: UInt,
+        val filter: Short,
+        val flags: UShort,
+        val udata: ULong?
+    ) : FileWatcherRawEvent
+
+    data class NodejsFswatchRawEvent(
+        val targetDirectory: String,
+        val event: String,
+        val filename: String?
+    ) : FileWatcherRawEvent
+
+    data class JvmWatchServiceRawEvent(
+        val kind: String,
+        val count: Int,
+        val context: Any,
+        val contextAsPathString: String?
+    ) : FileWatcherRawEvent
+
+    data class LinuxInotifyRawEvent(
+        val wd: Int,
+        val name: String,
+        val mask: UInt,
+        val len: UInt,
+        val cookie: UInt
+    ) : FileWatcherRawEvent
+
+    data class WindowsReadDirectoryRawEvent(
+        val targetDirectory: String,
+        val action: UInt,
+        val filename: String,
+        val filenameLength: UInt,
+        val nextEntryOffset: UInt
+    ) : FileWatcherRawEvent
 }

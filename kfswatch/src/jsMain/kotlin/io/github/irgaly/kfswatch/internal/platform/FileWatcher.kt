@@ -18,6 +18,7 @@ internal actual class FileWatcher actual constructor(
     private val onStop: (targetDirectory: String) -> Unit,
     private val onOverflow: (targetDirectory: String?) -> Unit,
     private val onError: (targetDirectory: String?, message: String) -> Unit,
+    private val onRawEvent: ((event: FileWatcherRawEvent) -> Unit)?,
     private val logger: Logger?
 ) {
     private val watchers: MutableMap<PlatformPath, Watcher> = mutableMapOf()
@@ -74,6 +75,13 @@ internal actual class FileWatcher actual constructor(
                         logger?.debug {
                             "fs.watch: event = $event, filename = $filename, target = $targetDirectory"
                         }
+                        onRawEvent?.invoke(
+                            FileWatcherRawEvent.NodejsFswatchRawEvent(
+                                targetDirectory = targetDirectory,
+                                event = event,
+                                filename = filename
+                            )
+                        )
                         val targetExists = fs.existsSync(targetDirectory).unsafeCast<Boolean>()
                         if (!targetExists) {
                             // * 監視対象が移動または削除された

@@ -67,6 +67,7 @@ internal actual class FileWatcher actual constructor(
     private val onStop: (targetDirectory: String) -> Unit,
     private val onOverflow: (targetDirectory: String?) -> Unit,
     private val onError: (targetDirectory: String?, message: String) -> Unit,
+    private val onRawEvent: ((event: FileWatcherRawEvent) -> Unit)?,
     private val logger: Logger?
 ) {
     private val lock = NSLock()
@@ -480,9 +481,20 @@ internal actual class FileWatcher actual constructor(
                             )
                         }
                     } else {
+                        onRawEvent?.invoke(
+                            FileWatcherRawEvent.DarwinKernelQueuesRawEvent(
+                                ident = kevent.ident.toULong(),
+                                fflags = kevent.fflags,
+                                filter = kevent.filter,
+                                flags = kevent.flags,
+                                udata = kevent.udata?.rawValue?.toLong()?.toULong()
+                            )
+                        )
                         val descriptor = kevent.ident.toInt()
-                        var (info, childDescriptor) = descriptorsToWatchInfo[descriptor] ?: Pair(null, null)
-                        val targetDirectory = info?.targetDirectory ?: descriptorsToTargetDirectory[descriptor]
+                        var (info, childDescriptor) =
+                            descriptorsToWatchInfo[descriptor] ?: Pair(null, null)
+                        val targetDirectory =
+                            info?.targetDirectory ?: descriptorsToTargetDirectory[descriptor]
                         if (info == null && targetDirectory != null) {
                             info = watchInfo[targetDirectory]
                         }

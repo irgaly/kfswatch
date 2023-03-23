@@ -24,6 +24,7 @@ internal actual class FileWatcher actual constructor(
     private val onStop: (targetDirectory: String) -> Unit,
     private val onOverflow: (targetDirectory: String?) -> Unit,
     private val onError: (targetDirectory: String?, message: String) -> Unit,
+    private val onRawEvent: ((event: FileWatcherRawEvent) -> Unit)?,
     private val logger: Logger?
 ) {
     private val lock = ReentrantLock()
@@ -59,6 +60,13 @@ internal actual class FileWatcher actual constructor(
                     logger?.debug {
                         "FileObserver.onEvent: event = ${event.toString(16)}, path = $path"
                     }
+                    onRawEvent?.invoke(
+                        FileWatcherRawEvent.AndroidFileObserverRawEvent(
+                            targetDirectory = targetDirectory,
+                            event = event,
+                            path = path
+                        )
+                    )
                     @Suppress("LocalVariableName")
                     val IN_IGNORED = 0x00008000 // inotify 監視終了イベント
                     when {

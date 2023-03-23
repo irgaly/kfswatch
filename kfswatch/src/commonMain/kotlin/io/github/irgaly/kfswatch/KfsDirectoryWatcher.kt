@@ -2,6 +2,7 @@ package io.github.irgaly.kfswatch
 
 import io.github.irgaly.kfswatch.internal.platform.FileWatcher
 import io.github.irgaly.kfswatch.internal.platform.FileWatcherEvent
+import io.github.irgaly.kfswatch.internal.platform.FileWatcherRawEvent
 import io.github.irgaly.kfswatch.internal.platform.Logger
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -44,6 +45,7 @@ import kotlinx.coroutines.withContext
 class KfsDirectoryWatcher(
     private val scope: CoroutineScope,
     private val dispatcher: CoroutineDispatcher = Dispatchers.Default,
+    private val rawEventEnabled: Boolean = false,
     private val logger: KfsLogger? = null
 ) {
     private val mutex = Mutex()
@@ -52,12 +54,14 @@ class KfsDirectoryWatcher(
     private val onStopMutableSharedFlow = MutableSharedFlow<String>()
     private val onOverflowMutableSharedFlow = MutableSharedFlow<String?>()
     private val onErrorMutableSharedFlow = MutableSharedFlow<KfsDirectoryWatcherError>()
+    private val onRawEventMutableSharedFlow = MutableSharedFlow<KfsDirectoryWatcherRawEvent>()
     private var watcher: FileWatcher = FileWatcher(
         onEvent = ::onEvent,
         onStart = ::onStart,
         onStop = ::onStop,
         onOverflow = ::onOverflow,
         onError = ::onError,
+        onRawEvent = if (rawEventEnabled) ::onRawEvent else null,
         logger = logger?.let { BridgeLogger(it) }
     )
 
@@ -107,6 +111,14 @@ class KfsDirectoryWatcher(
      * Error event flow
      */
     val onErrorFlow: Flow<KfsDirectoryWatcherError> = onErrorMutableSharedFlow.asSharedFlow()
+
+    /**
+     * File System Raw Event flow
+     *
+     * This flow needs [rawEventEnabled] set to true
+     */
+    val onRawEventFlow: Flow<KfsDirectoryWatcherRawEvent> =
+        onRawEventMutableSharedFlow.asSharedFlow()
 
     /**
      * Get this instance is closed or not
@@ -267,9 +279,16 @@ class KfsDirectoryWatcher(
         }
     }
 
+    private fun onRawEvent(event: FileWatcherRawEvent) {
+        scope.launch(dispatcher) {
+            logger?.debug("onRawEvent: $event")
+            onRawEventMutableSharedFlow.emit(KfsDirectoryWatcherRawEvent.from(event))
+        }
+    }
+
     private inner class BridgeLogger(
         private val logger: KfsLogger
-    ): Logger {
+    ) : Logger {
         override fun debug(message: () -> String) {
             logger.debug(message())
         }
