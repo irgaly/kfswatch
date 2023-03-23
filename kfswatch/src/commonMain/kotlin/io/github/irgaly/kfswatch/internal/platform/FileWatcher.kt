@@ -74,7 +74,7 @@ internal sealed interface FileWatcherRawEvent {
 
     data class NodejsFswatchRawEvent(
         val targetDirectory: String,
-        val event: String,
+        val eventType: String,
         val filename: String?
     ) : FileWatcherRawEvent
 

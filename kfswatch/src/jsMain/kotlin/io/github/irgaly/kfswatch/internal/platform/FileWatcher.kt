@@ -78,7 +78,7 @@ internal actual class FileWatcher actual constructor(
                         onRawEvent?.invoke(
                             FileWatcherRawEvent.NodejsFswatchRawEvent(
                                 targetDirectory = targetDirectory,
-                                event = event,
+                                eventType = event,
                                 filename = filename
                             )
                         )

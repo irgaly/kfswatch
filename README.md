@@ -284,7 +284,7 @@ data class DarwinKernelQueuesRawEvent(
 
 data class NodejsFswatchRawEvent(
   override val targetDirectory: String,
-  val event: String,
+  val eventType: String,
   val filename: String?
 ) : KfsDirectoryWatcherRawEvent {
   //...
