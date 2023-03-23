@@ -1,0 +1,26 @@
+# v*.*.* tag -> deploy to Maven Central
+name: Deploy to Maven Central Release
+
+on:
+  push:
+    tags:
+      - v[0-9]+.[0-9]+.[0-9]+*
+
+jobs:
+  deploy-mavencentral:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-java@v3
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: ./.github/actions/gradle-cache
+      - name: Deploy to Maven Central
+        env:
+          ORG_GRADLE_PROJECT_sonatypeUsername: ${{ secrets.MAVEN_CENTRAL_USERNAME_TOKEN }}
+          ORG_GRADLE_PROJECT_sonatypePassword: ${{ secrets.MAVEN_CENTRAL_PASSWORD_TOKEN }}
+          SIGNING_PGP_KEY: ${{ secrets.SIGNING_PGP_KEY }}
+          SIGNING_PGP_PASSWORD: ${{ secrets.SIGNING_PGP_PASSWORD }}
+        run: |
+          ./gradlew publishToSonatype closeAndReleaseSonatypeStagingRepository

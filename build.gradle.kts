@@ -111,10 +111,12 @@ subprojects {
         }
         extensions.configure<SigningExtension> {
             useInMemoryPgpKeys(
-                System.getenv("SIGNING_PGP_KEY"),
-                System.getenv("SIGNING_PGP_PASSWORD")
+                providers.environmentVariable("SIGNING_PGP_KEY").orNull,
+                providers.environmentVariable("SIGNING_PGP_PASSWORD").orNull
             )
-            sign(extensions.getByType<PublishingExtension>().publications)
+            if (providers.environmentVariable("CI").isPresent) {
+                sign(extensions.getByType<PublishingExtension>().publications)
+            }
         }
     }
 }
