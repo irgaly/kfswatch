@@ -90,7 +90,7 @@ watcher.close() // or scope.cancel() will trigger watcher.close() automatically
 Kfswatch supports all platforms, so it supports only simple events.
 
 Kfswatch **does not support recursive directory watching**. Only watching directory's child entry
-events will be reported.
+events will be reported. There are no events for watching directory itself.
 
 KfsDirectoryWatcherEvent
 
@@ -116,8 +116,6 @@ data class KfsDirectoryWatcherEvent(
 | KfsEvent.Create | Watching directory's child file or directory entry has created. |
 | KfsEvent.Delete | Watching directory's child file or directory entry has deleted. |
 | KfsEvent.Modify | Watching directory's child file's content has changed.          |
-
-There are no events for watching directory itself.
 
 ## Note: Reliability of Events
 
@@ -338,16 +336,16 @@ data class WindowsReadDirectoryRawEvent(
 
 Kfswatch is a Kotlin Multiplatform library.
 
-| Platform                           | Target                                                           | Monitoring System                                                                                                                              | Status                                |
-|------------------------------------|------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------|
-| Kotlin/JVM<br/>Linux/macOS/Windows | jvm                                                              | [WatchService](https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/nio/file/WatchService.html)                                   | :white_check_mark: Tested             |
-| Kotlin/JS<br/>Linux/macOS/Windows  | nodejs                                                           | [fs.watch](https://nodejs.org/api/fs.html#fswatchfilename-options-listener)                                                                    | :white_check_mark: Tested             |
-| Kotlin/Android                     | android                                                          | [FileObserver](https://developer.android.com/reference/kotlin/android/os/FileObserver)                                                         | :white_check_mark: Tested             |
-| Kotlin/Native iOS                  | iosArm64<br/>iosX64(simulator)<br/>iosSimulatorArm64             | [Kernel Queues](https://developer.apple.com/library/archive/documentation/Darwin/Conceptual/FSEvents_ProgGuide/KernelQueues/KernelQueues.html) | :white_check_mark: Tested             |
-| Kotlin/Native watchOS              | watchosArm64<br/>watchosX64(simulator)<br/>watchosSimulatorArm64 | [Kernel Queues](https://developer.apple.com/library/archive/documentation/Darwin/Conceptual/FSEvents_ProgGuide/KernelQueues/KernelQueues.html) | :white_check_mark: (Tested as iosX64) |
-| Kotlin/Native tvOS                 | tvosArm64<br/>tvosX64(simulator)<br/>tvosSimulatorArm64          | [Kernel Queues](https://developer.apple.com/library/archive/documentation/Darwin/Conceptual/FSEvents_ProgGuide/KernelQueues/KernelQueues.html) | :white_check_mark: (Tested as iosX64) |
-| Kotlin/Native macOS                | macosX64<br/>macosArm64                                          | [Kernel Queues](https://developer.apple.com/library/archive/documentation/Darwin/Conceptual/FSEvents_ProgGuide/KernelQueues/KernelQueues.html) | :white_check_mark: Tested             |
-| Kotlin/Native Linux                | linuxX64                                                         | [inotify](https://manpages.ubuntu.com/manpages/bionic/en/man7/inotify.7.html)                                                                  | :white_check_mark: Tested             |
-| Kotlin/Native Windows              | mingwX64                                                         | [ReadDirectoryW](https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-readdirectorychangesw)                                 | :white_check_mark: Tested             |
-
 Kotlin/JS browser has no File System, so Kfswatch has no operation implementation for that.
+
+| Platform                          | Target                                                           | Monitoring System                                                                                                                              | Status                                |
+|-----------------------------------|------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------|
+| Kotlin/JVM on Linux/macOS/Windows | jvm                                                              | [WatchService](https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/nio/file/WatchService.html)                                   | :white_check_mark: Tested             |
+| Kotlin/JS on Linux/macOS/Windows  | nodejs                                                           | [fs.watch](https://nodejs.org/api/fs.html#fswatchfilename-options-listener)                                                                    | :white_check_mark: Tested             |
+| Kotlin/Android                    | android                                                          | [FileObserver](https://developer.android.com/reference/kotlin/android/os/FileObserver)                                                         | :white_check_mark: Tested             |
+| Kotlin/Native iOS                 | iosArm64<br/>iosX64(simulator)<br/>iosSimulatorArm64             | [Kernel Queues](https://developer.apple.com/library/archive/documentation/Darwin/Conceptual/FSEvents_ProgGuide/KernelQueues/KernelQueues.html) | :white_check_mark: Tested             |
+| Kotlin/Native watchOS             | watchosArm64<br/>watchosX64(simulator)<br/>watchosSimulatorArm64 | [Kernel Queues](https://developer.apple.com/library/archive/documentation/Darwin/Conceptual/FSEvents_ProgGuide/KernelQueues/KernelQueues.html) | :white_check_mark: (Tested as iosX64) |
+| Kotlin/Native tvOS                | tvosArm64<br/>tvosX64(simulator)<br/>tvosSimulatorArm64          | [Kernel Queues](https://developer.apple.com/library/archive/documentation/Darwin/Conceptual/FSEvents_ProgGuide/KernelQueues/KernelQueues.html) | :white_check_mark: (Tested as iosX64) |
+| Kotlin/Native macOS               | macosX64<br/>macosArm64                                          | [Kernel Queues](https://developer.apple.com/library/archive/documentation/Darwin/Conceptual/FSEvents_ProgGuide/KernelQueues/KernelQueues.html) | :white_check_mark: Tested             |
+| Kotlin/Native Linux               | linuxX64                                                         | [inotify](https://manpages.ubuntu.com/manpages/bionic/en/man7/inotify.7.html)                                                                  | :white_check_mark: Tested             |
+| Kotlin/Native Windows             | mingwX64                                                         | [ReadDirectoryW](https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-readdirectorychangesw)                                 | :white_check_mark: Tested             |
