@@ -166,7 +166,7 @@ Taking child entry differences:
 ```kotlin
 // For example: JVM File implementation
 val directory: File = File("path/to/directory")
-val children: MutableSet<String> = directory.listFiles().toMutableSet()
+val children: MutableSet<String> = directory.list().toMutableSet()
 val watcher: KfsDirectoryWatcher = KfsDirectoryWatcher(scope)
 watcher.add("path/to/directory")
 launch {
