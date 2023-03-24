@@ -113,16 +113,15 @@ data class KfsDirectoryWatcherEvent(
 
 | Event           | Description                                                                                                                                                                                                                                                                                                                                              |
 |-----------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| KfsEvent.Create | Watching directory's child file or directory entry has created.<br/>This event contains situations below:<br/>* A file/directory has newly created.<br/>* A file/directory has renamed or moved to `event.path` name.<br/>* A file/directory has moved into watching directory from other directory.<br/>* A file/directory has replaced or overwritten. |
-| KfsEvent.Delete | Watching directory's child file or directory entry has deleted.<br/>This event contains situations below:<br/>* A file/directory has deleted.<br/>* A file/directory has renamed or moved from `event.path` name.<br/>* A file/directory has moved out to other directory from watching directory.                                                       |
-| KfsEvent.Modify | Watching directory's child file's content has changed.<br/>This event contains situation below:<br/>* A file has overwritten.<br/>* A file/directory has replaced by other entry.                                                                                                                                                                        |
+| KfsEvent.Create | Watching directory's child file or directory entry was created.<br/>This event contains situations below:<br/>* A file/directory was newly created.<br/>* A file/directory was renamed or moved to `event.path` name.<br/>* A file/directory was moved into watching directory from other directory.<br/>* A file/directory was replaced or overwritten. |
+| KfsEvent.Delete | Watching directory's child file or directory entry was deleted.<br/>This event contains situations below:<br/>* A file/directory was deleted.<br/>* A file/directory was renamed or moved from `event.path` name.<br/>* A file/directory was moved out to other directory from watching directory.                                                       |
+| KfsEvent.Modify | Watching directory's child file's content was changed.<br/>This event contains situation below:<br/>* A file was overwritten.<br/>* A file/directory was replaced by other entry.                                                                                                                                                                        |
 
 ### Platform specific behavior
 
 There are some platform specific behavior.
 
-* When a file/directory's file system attributes such as modification date, permission, or others
-  has changed, `Modify` event may occurs on some platform.
+* When a file/directory's file system attributes such as modification date, permission, or other was changed, `Modify` event may occurs on some platform.
 * When a directory's child entries changed, that directory's `Modify` event may occurs on some
   platform.
 
@@ -220,7 +219,7 @@ launch {
     when (event.targetDirectory) {
       "path/to/parent" -> {
         if (event.path == "target" && event.event == KfsEvent.Delete) {
-          // watching directory has moved or deleted
+          // watching directory was moved or deleted
         }
       }
       "path/to/parent/target" -> {
