@@ -211,7 +211,6 @@ code [KfswatchSpec.kt](kfswatch/src/commonTest/kotlin/io/github/irgaly/kfswatch/
 For example, watching parent directory:
 
 ```kotlin
-// For example: JVM File implementation
 val watcher: KfsDirectoryWatcher = KfsDirectoryWatcher(scope)
 watcher.add("path/to/parent/target", "path/to/parent")
 launch {
