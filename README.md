@@ -172,7 +172,7 @@ val watcher: KfsDirectoryWatcher = KfsDirectoryWatcher(scope)
 watcher.add("path/to/directory")
 launch {
   watcher.onEventFlow.collect { event ->
-    withContext(DIspatchers.IO) {
+    withContext(Dispatchers.IO) {
       val file = File("${event.targetDirectory}/${event.path}")
       val beforeExists = children.contains(event.path)
       val exists = file.exists()
