@@ -81,7 +81,7 @@ launch {
 // Stop watching
 watcher.removeAll()
 
-// Release all file watching resources
+// Release all system's resources
 watcher.close() // or scope.cancel() will trigger watcher.close() automatically
 ```
 
@@ -121,23 +121,25 @@ data class KfsDirectoryWatcherEvent(
 
 Kfswatch uses platform's native File monitoring API,
 and map raw file system event to Create, Delete or Modify.
-Since File's status will change by moment, that is recommended to check the status by yourself.
+Since file's status will change by moment, it is recommended to check the status by yourself.
 
 For example, checking the file is exists after Create event occurred:
 
 ```kotlin
 val watcher: KfsDirectoryWatcher = KfsDirectoryWatcher(scope)
 //...
-launch(Dispatchers.IO) {
+launch {
   watcher.onEventFlow.collect { event ->
     // For example: JVM File implementation
-    val file = File("${event.targetDirectory}/${event.path}")
-    if (event.event == KfsEvent.Create) {
-      val exists = file.exists()
-      if (exists) {
-        // ${event.path} file is created and still exists
-        // do your operation here
-        //...
+    withContext(Dispatchers.IO) {
+      val file = File("${event.targetDirectory}/${event.path}")
+      if (event.event == KfsEvent.Create) {
+        val exists = file.exists()
+        if (exists) {
+          // ${event.path} file is created and still exists
+          // do your operation here
+          //...
+        }
       }
     }
   }
@@ -161,24 +163,26 @@ val watcher: KfsDirectoryWatcher = KfsDirectoryWatcher(scope)
 watcher.add("path/to/directory")
 launch {
   watcher.onEventFlow.collect { event ->
-    val file = File("${event.targetDirectory}/${event.path}")
-    val beforeExists = children.contains(event.path)
-    val exists = file.exists()
-    when {
-      (!beforeExists && exists) -> {
-        // When file is created
-        //...
+    withContext(DIspatchers.IO) {
+      val file = File("${event.targetDirectory}/${event.path}")
+      val beforeExists = children.contains(event.path)
+      val exists = file.exists()
+      when {
+        (!beforeExists && exists) -> {
+          // When file is created
+          //...
+        }
+        (beforeExists && exists) -> {
+          // It seems the file is modified, overwritten or replaced
+          //...
+        }
       }
-      (beforeExists && exists) -> {
-        // It seems the file is modified, overwritten or replaced
-        //...
+      // maintain the child entries
+      if (exists) {
+        children.add(event.path)
+      } else {
+        children.remove(event.path)
       }
-    }
-    // maintain the child entries
-    if (exists) {
-      children.add(event.path)
-    } else {
-      children.remove(event.pth)
     }
   }
 }
@@ -195,6 +199,28 @@ yourself.
 
 If you'd like to know platform specific behavior, please look at the test
 code [KfswatchSpec.kt](kfswatch/src/commonTest/kotlin/io/github/irgaly/kfswatch/KfswatchSpec.kt).
+
+For example, watching parent directory:
+
+```kotlin
+// For example: JVM File implementation
+val watcher: KfsDirectoryWatcher = KfsDirectoryWatcher(scope)
+watcher.add("path/to/parent/target", "path/to/parent")
+launch {
+  watcher.onEventFlow.collect { event ->
+    when (event.targetDirectory) {
+      "path/to/parent" -> {
+        if (event.path == "target" && event.event == KfsEvent.Delete) {
+          // watching directory has moved or deleted
+        }
+      }
+      "path/to/parent/target" -> {
+        // watching directory's event happened
+      }
+    }
+  }
+}
+```
 
 ## KfsDirectoryWatcher Features
 
