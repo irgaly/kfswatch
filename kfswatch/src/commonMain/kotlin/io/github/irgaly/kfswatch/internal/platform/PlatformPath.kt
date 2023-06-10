@@ -3,13 +3,14 @@ package io.github.irgaly.kfswatch.internal.platform
 /**
  * platform File separator で path を比較できる Path クラス
  */
-class PlatformPath (
+internal class PlatformPath(
     val originalPath: String
 ) {
     private val pathSeparator = when {
         (Platform.isJvmWindows ||
                 Platform.isNodejsWindows ||
                 Platform.isWindows) -> "\\"
+
         else -> "/"
     }
 
