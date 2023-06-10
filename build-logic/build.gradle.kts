@@ -1,12 +1,10 @@
 plugins {
     `kotlin-dsl`
 }
-
 dependencies {
     implementation(libs.gradle.android)
-    implementation(libs.gradle.multiplatform)
+    implementation(libs.gradle.kotlin)
 }
-
 gradlePlugin {
     plugins {
         register("kotlin.multiplatform") {
@@ -22,4 +20,7 @@ gradlePlugin {
             implementationClass = "io.github.irgaly.buildlogic.AndroidLibraryPlugin"
         }
     }
+}
+kotlin {
+    jvmToolchain(11)
 }
