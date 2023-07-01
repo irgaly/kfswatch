@@ -25,7 +25,7 @@ test-kotest-runner = { module = "io.kotest:kotest-runner-junit5", version.ref = 
 test-kotest-assertions = { module = "io.kotest:kotest-assertions-core", version.ref = "kotest" }
 test-kotest-engine = { module = "io.kotest:kotest-framework-engine", version.ref = "kotest" }
 test-mockk = { module = "io.mockk:mockk", version = "1.13.4" }
-test-turbine = { module = "app.cash.turbine:turbine", version = "0.13.0" }
+test-turbine = { module = "app.cash.turbine:turbine", version = "1.0.0" }
 test-android-junit5 = { module = "org.junit.jupiter:junit-jupiter-api", version = "5.9.2" }
 test-android-junit5-core = { module = "de.mannodermaus.junit5:android-test-core", version = "1.3.0" }
 test-android-junit5-runner = { module = "de.mannodermaus.junit5:android-test-runner", version = "1.3.0" }
