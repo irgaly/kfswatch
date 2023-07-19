@@ -1,6 +1,7 @@
 package io.github.irgaly.test.platform
 
 import kotlinx.cinterop.BooleanVar
+import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.ObjCObjectVar
 import kotlinx.cinterop.UnsafeNumber
 import kotlinx.cinterop.alloc
@@ -21,6 +22,7 @@ import platform.Foundation.temporaryDirectory
 import platform.Foundation.writeToFile
 import platform.posix.rmdir
 
+@OptIn(ExperimentalForeignApi::class)
 actual class Files {
     @OptIn(UnsafeNumber::class)
     actual companion object {

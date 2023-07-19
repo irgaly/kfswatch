@@ -1,5 +1,6 @@
 package io.github.irgaly.test.platform
 
+import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.alloc
 import kotlinx.cinterop.allocArray
 import kotlinx.cinterop.memScoped
@@ -43,6 +44,7 @@ import platform.windows.UuidCreate
 import platform.windows.UuidToStringW
 import platform.windows.WriteFile
 
+@OptIn(ExperimentalForeignApi::class)
 actual class Files {
     actual companion object {
         actual suspend fun createTemporaryDirectory(): String = withContext(Dispatchers.Default) {
@@ -54,7 +56,7 @@ actual class Files {
                 val tempPathBuffer = allocArray<TCHARVar>(MAX_PATH)
                 val uuid = alloc<UUID>()
                 val rpcString = alloc<RPC_WSTRVar>()
-                val result = GetTempPathW(MAX_PATH, tempPathBuffer)
+                val result = GetTempPathW(MAX_PATH.toUInt(), tempPathBuffer)
                 if (result == 0U || MAX_PATH.toUInt() < result) {
                     error("GetTempPathW error")
                 }
@@ -89,11 +91,11 @@ actual class Files {
                 memScoped {
                     val handle = CreateFileW(
                         lpFileName = path,
-                        dwDesiredAccess = GENERIC_WRITE,
+                        dwDesiredAccess = GENERIC_WRITE.toUInt(),
                         dwShareMode = (FILE_SHARE_DELETE or FILE_SHARE_READ or FILE_SHARE_WRITE).toUInt(),
                         lpSecurityAttributes = null,
-                        dwCreationDisposition = OPEN_ALWAYS, // 既存ファイルを開く(内容はそのまま)、または新規作成する
-                        dwFlagsAndAttributes = FILE_ATTRIBUTE_NORMAL,
+                        dwCreationDisposition = OPEN_ALWAYS.toUInt(), // 既存ファイルを開く(内容はそのまま)、または新規作成する
+                        dwFlagsAndAttributes = FILE_ATTRIBUTE_NORMAL.toUInt(),
                         hTemplateFile = null
                     )
                     val bytes = text.encodeToByteArray().toCValues()
@@ -130,7 +132,7 @@ actual class Files {
                     lpNewFileName = destination,
                     // destination がファイルであれば上書きする
                     // ディレクトリの場合はエラー
-                    dwFlags = MOVEFILE_REPLACE_EXISTING
+                    dwFlags = MOVEFILE_REPLACE_EXISTING.toUInt()
                 )
                 (result != FALSE)
             }

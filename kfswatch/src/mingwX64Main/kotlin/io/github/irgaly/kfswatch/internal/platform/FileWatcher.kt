@@ -2,6 +2,7 @@ package io.github.irgaly.kfswatch.internal.platform
 
 import kotlinx.cinterop.COpaquePointer
 import kotlinx.cinterop.CPointer
+import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.alloc
 import kotlinx.cinterop.allocArray
 import kotlinx.cinterop.allocArrayOf
@@ -81,6 +82,7 @@ import platform.windows.WaitForSingleObject
  *
  * https://learn.microsoft.com/ja-jp/windows/win32/api/winbase/nf-winbase-readdirectorychangesw
  */
+@OptIn(ExperimentalForeignApi::class)
 internal actual class FileWatcher actual constructor(
     private val onEvent: (targetDirectory: String, path: String, event: FileWatcherEvent) -> Unit,
     private val onStart: (targetDirectory: String) -> Unit,
@@ -332,10 +334,10 @@ internal actual class FileWatcher actual constructor(
                                     val handle = checkNotNull(
                                         CreateFileW(
                                             lpFileName = targetPath.originalPath,
-                                            dwDesiredAccess = FILE_LIST_DIRECTORY,
+                                            dwDesiredAccess = FILE_LIST_DIRECTORY.toUInt(),
                                             dwShareMode = (FILE_SHARE_READ or FILE_SHARE_WRITE or FILE_SHARE_DELETE).toUInt(),
                                             lpSecurityAttributes = null,
-                                            dwCreationDisposition = OPEN_EXISTING,
+                                            dwCreationDisposition = OPEN_EXISTING.toUInt(),
                                             dwFlagsAndAttributes = (FILE_FLAG_BACKUP_SEMANTICS or FILE_FLAG_OVERLAPPED).toUInt(),
                                             hTemplateFile = null
                                         )
@@ -563,7 +565,7 @@ internal actual class FileWatcher actual constructor(
     actual fun pause() {
         val result = WaitForSingleObject(
             hHandle = threadSemaphoreHandle,
-            dwMilliseconds = 0
+            dwMilliseconds = 0U
         )
         if (result == WAIT_OBJECT_0) {
             // ロックされていない状態からロックされた
@@ -657,9 +659,9 @@ internal actual class FileWatcher actual constructor(
                         ).toUInt(),
                 lpSource = null,
                 dwMessageId = errorCode,
-                dwLanguageId = 0,
+                dwLanguageId = 0U,
                 lpBuffer = messagePointer.ptr.reinterpret(),
-                nSize = 0,
+                nSize = 0U,
                 Arguments = null
             )
             val message = checkNotNull(messagePointer.value).toKString()

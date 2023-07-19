@@ -1,5 +1,6 @@
 package io.github.irgaly.kfswatch.internal.platform
 
+import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.ObjCObjectVar
 import kotlinx.cinterop.alloc
 import kotlinx.cinterop.memScoped
@@ -12,6 +13,7 @@ import platform.Foundation.NSError
 import platform.Foundation.NSFileManager
 import platform.Foundation.NSURL
 
+@OptIn(ExperimentalForeignApi::class)
 internal actual class Files {
     actual companion object {
         actual suspend fun exists(path: String): Boolean = withContext(Dispatchers.Default) {
@@ -31,12 +33,12 @@ internal actual class Files {
                         error = errorPtr
                     )
                     val error = errorPtr.pointed.value
-                if (error != null) {
-                    throw Exception(error.toString())
+                    if (error != null) {
+                        throw Exception(error.toString())
+                    }
+                    created
                 }
-                created
             }
-        }
 
         actual val separator: String = "/"
     }

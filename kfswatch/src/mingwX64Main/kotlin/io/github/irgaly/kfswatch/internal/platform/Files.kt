@@ -1,5 +1,6 @@
 package io.github.irgaly.kfswatch.internal.platform
 
+import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import platform.windows.ERROR_SUCCESS
@@ -7,6 +8,7 @@ import platform.windows.GetFileAttributesW
 import platform.windows.INVALID_FILE_ATTRIBUTES
 import platform.windows.SHCreateDirectoryExW
 
+@OptIn(ExperimentalForeignApi::class)
 internal actual class Files {
     actual companion object {
         actual suspend fun exists(path: String): Boolean = withContext(Dispatchers.Default) {

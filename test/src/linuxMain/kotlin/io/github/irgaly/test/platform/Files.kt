@@ -1,5 +1,6 @@
 package io.github.irgaly.test.platform
 
+import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.cstr
 import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.staticCFunction
@@ -22,6 +23,7 @@ import platform.posix.remove
 import platform.posix.rename
 import platform.posix.write
 
+@OptIn(ExperimentalForeignApi::class)
 actual class Files {
     actual companion object {
         actual suspend fun createTemporaryDirectory(): String = withContext(Dispatchers.Default) {
@@ -46,7 +48,7 @@ actual class Files {
             withContext(Dispatchers.Default) {
                 val result = mkdir(
                     __path = path,
-                    __mode = 0b111101101 /* 0755 */
+                    __mode = 0b111101101U /* 0755 */
                 )
                 (result == 0)
             }

@@ -2,6 +2,7 @@ package io.github.irgaly.kfswatch.internal.platform
 
 import kotlinx.cinterop.BooleanVar
 import kotlinx.cinterop.ByteVar
+import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.IntVar
 import kotlinx.cinterop.ObjCObjectVar
 import kotlinx.cinterop.UnsafeNumber
@@ -60,7 +61,7 @@ import platform.posix.write
  *
  * https://developer.apple.com/library/archive/documentation/Darwin/Conceptual/FSEvents_ProgGuide/KernelQueues/KernelQueues.html
  */
-@OptIn(UnsafeNumber::class)
+@OptIn(UnsafeNumber::class, ExperimentalForeignApi::class)
 internal actual class FileWatcher actual constructor(
     private val onEvent: (targetDirectory: String, path: String, event: FileWatcherEvent) -> Unit,
     private val onStart: (targetDirectory: String) -> Unit,
@@ -187,7 +188,7 @@ internal actual class FileWatcher actual constructor(
                     write(
                         __fd = checkNotNull(threadResource).threadResetPipeDescriptors.second,
                         __buf = cValuesOf(0.toByte()),
-                        __nbyte = 1
+                        __nbyte = 1U
                     )
                 } else {
                     this.threadResource = resource
@@ -223,7 +224,7 @@ internal actual class FileWatcher actual constructor(
                 write(
                     __fd = checkNotNull(threadResource).threadResetPipeDescriptors.second,
                     __buf = cValuesOf(0.toByte()),
-                    __nbyte = 1
+                    __nbyte = 1U
                 )
             }
         }
@@ -252,7 +253,7 @@ internal actual class FileWatcher actual constructor(
                 write(
                     __fd = checkNotNull(threadResource).threadResetPipeDescriptors.second,
                     __buf = cValuesOf(0.toByte()),
-                    __nbyte = 1
+                    __nbyte = 1U
                 )
             }
         }
@@ -477,7 +478,7 @@ internal actual class FileWatcher actual constructor(
                             read(
                                 /* __fd = */ checkNotNull(threadResetPipeDescriptor),
                                 /* __buf = */ alloc<ByteVar>().ptr,
-                                /* __nbytes = */ 1,
+                                /* __nbytes = */ 1U,
                             )
                         }
                     } else {
@@ -564,7 +565,7 @@ internal actual class FileWatcher actual constructor(
             write(
                 __fd = checkNotNull(threadResource).threadResetPipeDescriptors.second,
                 __buf = cValuesOf(0.toByte()),
-                __nbyte = 1
+                __nbyte = 1U
             )
         }
     }
@@ -578,7 +579,7 @@ internal actual class FileWatcher actual constructor(
         dispatch_async(
             queue = dispatch_get_global_queue(
                 identifier = DISPATCH_QUEUE_PRIORITY_DEFAULT.convert(),
-                flags = 0
+                flags = 0U
             )
         ) {
             stopAll()
