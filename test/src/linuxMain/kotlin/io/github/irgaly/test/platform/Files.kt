@@ -48,7 +48,7 @@ actual class Files {
             withContext(Dispatchers.Default) {
                 val result = mkdir(
                     __path = path,
-                    __mode = 0b111101101 /* 0755 */
+                    __mode = 0b111101101U /* 0755 */
                 )
                 (result == 0)
             }

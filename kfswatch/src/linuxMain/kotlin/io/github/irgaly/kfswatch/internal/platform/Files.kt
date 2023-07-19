@@ -27,7 +27,7 @@ internal actual class Files {
                     if (parentExists) {
                         (mkdir(
                             __path = directoryPath,
-                            __mode = 0b111101101 /* 0755 */
+                            __mode = 0b111101101U /* 0755 */
                         ) == 0)
                     } else false
                 }

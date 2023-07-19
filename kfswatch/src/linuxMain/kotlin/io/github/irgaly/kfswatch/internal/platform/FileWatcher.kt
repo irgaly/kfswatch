@@ -99,7 +99,7 @@ internal actual class FileWatcher actual constructor(
         sem_init(
             __sem = value.ptr,
             __pshared = 0, /* 同一プロセス内セマフォ */
-            __value = 1 /* セマフォ初期値はロック可能 */
+            __value = 1U /* セマフォ初期値はロック可能 */
         )
         value.ptr
     }
@@ -199,7 +199,7 @@ internal actual class FileWatcher actual constructor(
                     write(
                         __fd = checkNotNull(threadResource).threadResetPipeDescriptors.second,
                         __buf = cValuesOf(0.toByte()),
-                        __n = 1
+                        __n = 1U
                     )
                 } else {
                     threadResource = resource
@@ -240,7 +240,7 @@ internal actual class FileWatcher actual constructor(
                 write(
                     __fd = checkNotNull(threadResource).threadResetPipeDescriptors.second,
                     __buf = cValuesOf(0.toByte()),
-                    __n = 1
+                    __n = 1U
                 )
             }
         }
@@ -269,7 +269,7 @@ internal actual class FileWatcher actual constructor(
                 write(
                     __fd = checkNotNull(threadResource).threadResetPipeDescriptors.second,
                     __buf = cValuesOf(0.toByte()),
-                    __n = 1
+                    __n = 1U
                 )
             }
         }
@@ -397,7 +397,7 @@ internal actual class FileWatcher actual constructor(
                         read(
                             __fd = pollDescriptors[0].fd,
                             __buf = buffer,
-                            __nbytes = 1,
+                            __nbytes = 1U,
                         )
                     }
                     if ((pollDescriptors[1].revents.toInt() and POLLIN) != 0) {
@@ -494,7 +494,7 @@ internal actual class FileWatcher actual constructor(
             write(
                 __fd = checkNotNull(threadResource).threadResetPipeDescriptors.second,
                 __buf = cValuesOf(0.toByte()),
-                __n = 1
+                __n = 1U
             )
         }
     }
