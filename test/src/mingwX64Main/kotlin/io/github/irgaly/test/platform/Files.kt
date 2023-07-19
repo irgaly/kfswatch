@@ -1,5 +1,6 @@
 package io.github.irgaly.test.platform
 
+import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.alloc
 import kotlinx.cinterop.allocArray
 import kotlinx.cinterop.memScoped
@@ -43,6 +44,7 @@ import platform.windows.UuidCreate
 import platform.windows.UuidToStringW
 import platform.windows.WriteFile
 
+@OptIn(ExperimentalForeignApi::class)
 actual class Files {
     actual companion object {
         actual suspend fun createTemporaryDirectory(): String = withContext(Dispatchers.Default) {

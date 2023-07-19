@@ -1,6 +1,7 @@
 package io.github.irgaly.kfswatch.internal.platform
 
 import kotlinx.cinterop.CPointer
+import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.IntVar
 import kotlinx.cinterop.alignOf
 import kotlinx.cinterop.alloc
@@ -73,6 +74,7 @@ import platform.posix.write
  *
  * https://manpages.ubuntu.com/manpages/bionic/en/man7/inotify.7.html
  */
+@OptIn(ExperimentalForeignApi::class)
 internal actual class FileWatcher actual constructor(
     private val onEvent: (targetDirectory: String, path: String, event: FileWatcherEvent) -> Unit,
     private val onStart: (targetDirectory: String) -> Unit,

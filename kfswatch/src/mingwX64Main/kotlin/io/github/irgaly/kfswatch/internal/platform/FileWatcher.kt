@@ -2,6 +2,7 @@ package io.github.irgaly.kfswatch.internal.platform
 
 import kotlinx.cinterop.COpaquePointer
 import kotlinx.cinterop.CPointer
+import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.alloc
 import kotlinx.cinterop.allocArray
 import kotlinx.cinterop.allocArrayOf
@@ -81,6 +82,7 @@ import platform.windows.WaitForSingleObject
  *
  * https://learn.microsoft.com/ja-jp/windows/win32/api/winbase/nf-winbase-readdirectorychangesw
  */
+@OptIn(ExperimentalForeignApi::class)
 internal actual class FileWatcher actual constructor(
     private val onEvent: (targetDirectory: String, path: String, event: FileWatcherEvent) -> Unit,
     private val onStart: (targetDirectory: String) -> Unit,
