@@ -8,11 +8,8 @@ import org.gradle.api.Project
 import org.gradle.api.artifacts.VersionCatalog
 import org.gradle.api.artifacts.VersionCatalogsExtension
 import org.gradle.kotlin.dsl.configure
-import org.gradle.kotlin.dsl.creating
 import org.gradle.kotlin.dsl.getByType
-import org.gradle.kotlin.dsl.getValue
-import org.gradle.kotlin.dsl.getting
-import org.gradle.kotlin.dsl.invoke
+import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
 import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
 import java.io.ByteArrayOutputStream
 
@@ -96,6 +93,7 @@ fun Project.execute(vararg commands: String): String {
 /**
  * multiplatform library 共通設定
  */
+@OptIn(ExperimentalKotlinGradlePluginApi::class)
 fun Project.configureMultiplatformLibrary() {
     extensions.configure<KotlinMultiplatformExtension> {
         pluginManager.withPlugin("com.android.library") {
@@ -104,24 +102,21 @@ fun Project.configureMultiplatformLibrary() {
                 publishAllLibraryVariants()
             }
         }
+        targetHierarchy.default()
         // Java jar
         jvm()
         // iOS
-        ios()
-        // ios() - iosArm64() // Apple iOS on ARM64 platforms (Apple iPhone 5s and newer)
-        // ios() - iosX64() // Apple iOS simulator on x86_64 platforms
+        iosArm64() // Apple iOS on ARM64 platforms (Apple iPhone 5s and newer)
+        iosX64() // Apple iOS simulator on x86_64 platforms
         iosSimulatorArm64() // Apple iOS simulator on Apple Silicon platforms
         // watchOS
-        watchos()
-        // watchos() - watchosArm64() // Apple watchOS on ARM64_32 platforms (Apple Watch Series 4 and newer)
-        // watchos() - watchosX64() // Apple watchOS 64-bit simulator (watchOS 7.0 and newer) on x86_64 platforms
+        watchosArm64() // Apple watchOS on ARM64_32 platforms (Apple Watch Series 4 and newer)
+        //watchosDeviceArm64() // Apple watchOS on ARM64 platforms (Apple Watch Series 8 and newer)
+        watchosX64() // Apple watchOS 64-bit simulator (watchOS 7.0 and newer) on x86_64 platforms
         watchosSimulatorArm64() // Apple watchOS simulator on Apple Silicon platforms
-        // kotlinx-coroutines-core not supports watchosDeviceArm64
-        //watchosDeviceArm64() // Apple watchOS on ARM64 platforms
         // tvOS
-        tvos()
-        // tvos() - tvosArm64() // Apple tvOS on ARM64 platforms (Apple TV 4th generation and newer)
-        // tvos() - tvosX64() // Apple tvOS simulator on x86_64 platforms
+        tvosArm64() // Apple tvOS on ARM64 platforms (Apple TV 4th generation and newer)
+        tvosX64() // Apple tvOS simulator on x86_64 platforms
         tvosSimulatorArm64() // Apple tvOS simulator on Apple Silicon platforms
         // macOS
         macosX64() // Apple macOS on x86_64 platforms
@@ -134,108 +129,6 @@ fun Project.configureMultiplatformLibrary() {
         js(IR) {
             browser()
             nodejs()
-        }
-        sourceSets {
-            val commonMain by getting
-            val commonTest by getting
-            val nativeMain by creating {
-                dependsOn(commonMain)
-            }
-            val nativeTest by creating {
-                dependsOn(nativeMain)
-                dependsOn(commonTest)
-            }
-            val darwinMain by creating {
-                dependsOn(nativeMain)
-            }
-            val darwinTest by creating {
-                dependsOn(darwinMain)
-                dependsOn(nativeTest)
-            }
-            val linuxMain by creating {
-                dependsOn(nativeMain)
-            }
-            val linuxTest by creating {
-                dependsOn(linuxMain)
-                dependsOn(nativeTest)
-            }
-            val linuxX64Main by getting {
-                dependsOn(linuxMain)
-            }
-            val linuxX64Test by getting {
-                dependsOn(linuxTest)
-            }
-            val iosMain by getting {
-                dependsOn(darwinMain)
-            }
-            val iosTest by getting {
-                dependsOn(iosMain)
-                dependsOn(darwinTest)
-            }
-            val watchosMain by getting {
-                dependsOn(iosMain)
-            }
-            val watchosTest by getting {
-                dependsOn(iosTest)
-            }
-            val tvosMain by getting {
-                dependsOn(iosMain)
-            }
-            val tvosTest by getting {
-                dependsOn(iosTest)
-            }
-            val iosSimulatorArm64Main by getting {
-                dependsOn(iosMain)
-            }
-            val iosSimulatorArm64Test by getting {
-                dependsOn(iosTest)
-            }
-            val watchosSimulatorArm64Main by getting {
-                dependsOn(iosMain)
-            }
-            val watchosSimulatorArm64Test by getting {
-                dependsOn(iosTest)
-            }
-            /*
-            val watchosDeviceArm64Main by getting {
-                dependsOn(iosMain)
-            }
-            val watchosDeviceArm64Test by getting {
-                dependsOn(iosTest)
-            }
-             */
-            val tvosSimulatorArm64Main by getting {
-                dependsOn(iosMain)
-            }
-            val tvosSimulatorArm64Test by getting {
-                dependsOn(iosTest)
-            }
-            val macosMain by creating {
-                dependsOn(darwinMain)
-            }
-            val macosTest by creating {
-                dependsOn(macosMain)
-                dependsOn(darwinTest)
-            }
-            val macosX64Main by getting {
-                dependsOn(macosMain)
-            }
-            val macosX64Test by getting {
-                dependsOn(macosTest)
-            }
-            val macosArm64Main by getting {
-                dependsOn(macosMain)
-            }
-            val macosArm64Test by getting {
-                dependsOn(macosTest)
-            }
-            val mingwX64Main by getting {
-                dependsOn(nativeMain)
-            }
-            val mingwX64Test by getting {
-                dependsOn(mingwX64Main)
-                dependsOn(nativeTest)
-            }
         }
     }
 }
