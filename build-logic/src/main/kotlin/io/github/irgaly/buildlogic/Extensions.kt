@@ -7,7 +7,12 @@ import com.android.build.gradle.LibraryExtension
 import org.gradle.api.Project
 import org.gradle.api.artifacts.VersionCatalog
 import org.gradle.api.artifacts.VersionCatalogsExtension
-import org.gradle.kotlin.dsl.*
+import org.gradle.kotlin.dsl.configure
+import org.gradle.kotlin.dsl.creating
+import org.gradle.kotlin.dsl.getByType
+import org.gradle.kotlin.dsl.getValue
+import org.gradle.kotlin.dsl.getting
+import org.gradle.kotlin.dsl.invoke
 import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
 import java.io.ByteArrayOutputStream
 
@@ -16,7 +21,7 @@ import java.io.ByteArrayOutputStream
  */
 fun Project.configureAndroid() {
     extensions.configure<BaseExtension> {
-        (this as CommonExtension<*, *, *, *>).apply {
+        (this as CommonExtension<*, *, *, *, *>).apply {
             compileSdk = libs.version("gradle-android-compile-sdk").toInt()
             defaultConfig {
                 minSdk = libs.version("gradle-android-min-sdk").toInt()
@@ -38,7 +43,7 @@ fun Project.configureAndroidLibrary() {
         buildFeatures {
             buildConfig = false
         }
-        packagingOptions {
+        packaging {
             resources {
                 excludes.add("META-INF/AL2.0")
                 excludes.add("META-INF/LGPL2.1")
@@ -91,7 +96,6 @@ fun Project.execute(vararg commands: String): String {
 /**
  * multiplatform library 共通設定
  */
-@Suppress("UNUSED_VARIABLE")
 fun Project.configureMultiplatformLibrary() {
     extensions.configure<KotlinMultiplatformExtension> {
         pluginManager.withPlugin("com.android.library") {
