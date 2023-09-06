@@ -1,5 +1,5 @@
 [versions]
-kfswatch = "0.9.0"
+kfswatch = "1.0.0"
 kotlin = "1.9.10"
 kotlinx-coroutines = "1.7.1"
 compose-compiler = "1.5.0"
