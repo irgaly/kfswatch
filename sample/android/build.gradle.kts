@@ -27,5 +27,5 @@ dependencies {
     implementation(libs.androidx.appcompat)
     implementation(libs.androidx.lifecycle)
     implementation(libs.bundles.compose)
-    implementation(libs.kfswatch)
+    implementation(projects.kfswatch)
 }
