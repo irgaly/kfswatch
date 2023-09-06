@@ -2,7 +2,7 @@
 kfswatch = "1.0.0"
 kotlin = "1.9.10"
 kotlinx-coroutines = "1.7.1"
-compose-compiler = "1.5.0"
+compose-compiler = "1.5.3"
 kotest = "5.7.0"
 gradle-android = "8.1.1"
 gradle-android-compile-sdk = "33"
