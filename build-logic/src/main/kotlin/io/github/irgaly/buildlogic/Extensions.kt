@@ -111,7 +111,7 @@ fun Project.configureMultiplatformLibrary() {
         iosSimulatorArm64() // Apple iOS simulator on Apple Silicon platforms
         // watchOS
         watchosArm64() // Apple watchOS on ARM64_32 platforms (Apple Watch Series 4 and newer)
-        //watchosDeviceArm64() // Apple watchOS on ARM64 platforms (Apple Watch Series 8 and newer)
+        watchosDeviceArm64() // Apple watchOS on ARM64 platforms (Apple Watch Series 8 and newer)
         watchosX64() // Apple watchOS 64-bit simulator (watchOS 7.0 and newer) on x86_64 platforms
         watchosSimulatorArm64() // Apple watchOS simulator on Apple Silicon platforms
         // tvOS
