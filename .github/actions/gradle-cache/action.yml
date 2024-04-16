@@ -6,11 +6,11 @@ runs:
     - id: get-month
       shell: bash
       run: echo "month=$(TZ=Asia/Tokyo date +%m)" >> $GITHUB_OUTPUT
-    - uses: actions/cache@v3
+    - uses: actions/cache@v4
       with:
         path: ~/.gradle/wrapper
         key: gradle-wrapper-${{ hashFiles('gradle/wrapper/gradle-wrapper.properties') }}
-    - uses: actions/cache@v3
+    - uses: actions/cache@v4
       with:
         path: |
           ~/.gradle/caches/jars-*
@@ -18,14 +18,14 @@ runs:
           ~/.gradle/caches/modules-*
         key: gradle-dependencies-${{ steps.get-month.outputs.month }}-${{ hashFiles('gradle/libs.versions.toml', '**/*.gradle.kts', 'build-logic/**/*.{kt,kts}') }}
         restore-keys: gradle-dependencies-${{ steps.get-month.outputs.month }}-
-    - uses: actions/cache@v3
+    - uses: actions/cache@v4
       with:
         path: |
           ~/.konan
           ~/.gradle/native
         key: ${{ runner.os }}-kotlin-native-${{ steps.get-month.outputs.month }}-${{ hashFiles('gradle/libs.versions.toml', '**/*.gradle.kts') }}
         restore-keys: ${{ runner.os }}-kotlin-native-${{ steps.get-month.outputs.month }}-
-    - uses: actions/cache@v3
+    - uses: actions/cache@v4
       with:
         path: |
           ~/.gradle/caches/build-cache-*
