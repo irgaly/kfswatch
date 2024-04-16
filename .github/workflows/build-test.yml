@@ -26,23 +26,23 @@ jobs:
         run: |
           ./gradlew :kfswatch:jsTestClasses
       - name: Android Build
-        if: matrix.platform == 'macos-latest'
+        if: contains(matrix.platform, 'ubuntu')
         run: |
           ./gradlew :kfswatch:packageDebugAndroidTest
       - name: Linux Build
-        if: matrix.platform == 'ubuntu-latest'
+        if: contains(matrix.platform, 'ubuntu')
         run: |
           ./gradlew :kfswatch:linkDebugTestLinuxX64
       - name: Windows Build
-        if: matrix.platform == 'windows-latest'
+        if: contains(matrix.platform, 'windows')
         run: |
           ./gradlew :kfswatch:linkDebugTestMingwX64
       - name: iOS Build
-        if: matrix.platform == 'macos-latest'
+        if: contains(matrix.platform, 'macos')
         run: |
           ./gradlew :kfswatch:linkDebugTestIosX64
       - name: macOS Build
-        if: matrix.platform == 'macos-latest'
+        if: contains(matrix.platform, 'macos')
         run: |
           ./gradlew :kfswatch:linkDebugTestMacosX64
       - name: JVM Test
@@ -51,59 +51,63 @@ jobs:
       - name: Nodejs Test
         run: |
           ./gradlew :kfswatch:jsNodeTest
+      - name: Enable KVM group for Android Emulator
+        if: contains(matrix.platform, 'ubuntu')
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
       - name: Android Test
         uses: reactivecircus/android-emulator-runner@v2
-        if: matrix.platform == 'macos-latest'
+        if: contains(matrix.platform, 'ubuntu')
         with:
           api-level: 29
-          target: google_apis
-          arch: x86_64
           script: |
             #./gradlew :kfswatch:pixel6GroupDebugAndroidTest
             ./gradlew :kfswatch:connectedDebugAndroidTest
       - name: Linux Test
-        if: matrix.platform == 'ubuntu-latest'
+        if: contains(matrix.platform, 'ubuntu')
         run: |
           ./gradlew :kfswatch:linuxX64Test
       - name: Windows Test
-        if: matrix.platform == 'windows-latest'
+        if: contains(matrix.platform, 'windows')
         run: |
           ./gradlew :kfswatch:mingwX64Test
       - name: iOS Test
-        if: matrix.platform == 'macos-latest'
+        if: contains(matrix.platform, 'macos')
         run: |
           ./gradlew :kfswatch:iosX64Test
       - name: macOS Test
-        if: matrix.platform == 'macos-latest'
+        if: contains(matrix.platform, 'macos')
         run: |
           ./gradlew :kfswatch:macosX64Test
       - name: Stop Gradle on Windows
-        if: matrix.platform == 'windows-latest'
+        if: contains(matrix.platform, 'windows')
         run: |
           # Windows で gradle cache を保存するために
           # .gradle/caches/8.0/kotlin-dsl/kotlin-dsl.lock の使用中ロックを解除する
           ./gradlew --stop
       - uses: actions/upload-artifact@v4
-        if: always() && (matrix.platform == 'macos-latest')
+        if: always() && contains(matrix.platform, 'macos')
         with:
           name: test-results-macos
           path: |
             **/build/reports/tests/jvmTest
             **/build/reports/tests/jsNodeTest
-            **/build/reports/androidTests/managedDevice/allDevices
-            **/build/reports/androidTests/connected
             **/build/reports/tests/macosX64Test
             **/build/reports/tests/iosX64Test
       - uses: actions/upload-artifact@v4
-        if: always() && (matrix.platform == 'ubuntu-latest')
+        if: always() && contains(matrix.platform, 'ubuntu')
         with:
           name: test-results-linux
           path: |
             **/build/reports/tests/jvmTest
             **/build/reports/tests/jsNodeTest
             **/build/reports/tests/linuxX64Test
+            **/build/reports/androidTests/managedDevice/allDevices
+            **/build/reports/androidTests/connected
       - uses: actions/upload-artifact@v4
-        if: always() && (matrix.platform == 'windows-latest')
+        if: always() && contains(matrix.platform, 'windows')
         with:
           name: test-results-windows
           path: |
