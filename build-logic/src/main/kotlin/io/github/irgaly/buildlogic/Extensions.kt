@@ -18,7 +18,7 @@ import java.io.ByteArrayOutputStream
  */
 fun Project.configureAndroid() {
     extensions.configure<BaseExtension> {
-        (this as CommonExtension<*, *, *, *, *>).apply {
+        (this as CommonExtension<*, *, *, *, *, *>).apply {
             compileSdk = libs.version("gradle-android-compile-sdk").toInt()
             defaultConfig {
                 minSdk = libs.version("gradle-android-min-sdk").toInt()
