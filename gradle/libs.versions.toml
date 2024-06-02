@@ -30,7 +30,7 @@ test-android-junit5 = { module = "org.junit.jupiter:junit-jupiter-api", version 
 test-android-junit5-core = { module = "de.mannodermaus.junit5:android-test-core", version = "1.4.0" }
 test-android-junit5-runner = { module = "de.mannodermaus.junit5:android-test-runner", version = "1.4.0" }
 test-android-runner = { module = "androidx.test:runner", version = "1.5.2" }
-klock = { module = "com.soywiz.korlibs.klock:klock", version = "4.0.3" }
+korlibs-time = { module = "com.soywiz.korge:korlibs-time", version = "5.4.0" }
 kfswatch = { module = "io.github.irgaly.kfswatch:kfswatch", version.ref = "kfswatch" }
 
 [bundles]
