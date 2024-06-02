@@ -1,3 +1,9 @@
+# v1.1.0 - 2024/06/02 JST
+
+#### Maintenance
+
+* Kotlin 2.0.0, Gradle 8.8, Kotest 5.9.0 [#73](https://github.com/irgaly/kfswatch/pull/73)
+
 # v1.0.0 - 2023/09/06 JST
 
 #### Fix
