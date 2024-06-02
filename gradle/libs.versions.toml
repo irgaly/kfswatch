@@ -2,7 +2,6 @@
 kfswatch = "1.0.0"
 kotlin = "2.0.0"
 kotlinx-coroutines = "1.8.0"
-compose-compiler = "1.5.4"
 kotest = "5.9.0"
 gradle-android = "8.3.2"
 gradle-android-compile-sdk = "34"
@@ -44,6 +43,7 @@ test-android-instrumented = [
 compose = ["compose-material3", "compose-uiTooling", "compose-activity"]
 
 [plugins]
+compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotest-multiplatform = { id = "io.kotest.multiplatform", version.ref = "kotest" }
 buildlogic-multiplatform-library = { id = "build-logic.multiplatform.library", version = "unspecified" }
 buildlogic-android-application = { id = "build-logic.android.application", version = "unspecified" }
