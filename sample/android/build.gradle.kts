@@ -1,5 +1,6 @@
 plugins {
     alias(libs.plugins.buildlogic.android.application)
+    alias(libs.plugins.compose.compiler)
 }
 
 android {
@@ -9,16 +10,10 @@ android {
         versionName = libs.versions.kfswatch.get()
         minSdk = 21
     }
-    buildFeatures {
-        compose = true
-    }
-    composeOptions {
-        kotlinCompilerExtensionVersion = libs.versions.compose.compiler.get()
-    }
 }
 
 kotlin {
-    jvmToolchain(11)
+    jvmToolchain(17)
 }
 
 dependencies {

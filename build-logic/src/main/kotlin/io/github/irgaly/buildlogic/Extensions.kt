@@ -98,7 +98,7 @@ fun Project.configureMultiplatformLibrary() {
     extensions.configure<KotlinMultiplatformExtension> {
         pluginManager.withPlugin("com.android.library") {
             // Android AAR
-            android {
+            androidTarget {
                 publishAllLibraryVariants()
             }
         }
