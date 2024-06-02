@@ -1,4 +1,3 @@
-import com.android.build.gradle.BaseExtension
 import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
 import org.jetbrains.kotlin.gradle.dsl.KotlinProjectExtension
 
@@ -19,7 +18,7 @@ subprojects {
     }
     pluginManager.withPlugin("org.jetbrains.kotlin.multiplatform") {
         extensions.configure<KotlinProjectExtension> {
-            jvmToolchain(11)
+            jvmToolchain(17)
         }
         extensions.configure<KotlinMultiplatformExtension> {
             sourceSets {
@@ -40,22 +39,6 @@ subprojects {
             }
         }
     }
-    listOf(
-        "com.android.application",
-        "com.android.library"
-    ).forEach {
-        pluginManager.withPlugin(it) {
-            extensions.configure<BaseExtension> {
-                compileOptions {
-                    // Android JVM toolchain workarounds
-                    // https://issuetracker.google.com/issues/260059413
-                    sourceCompatibility = JavaVersion.VERSION_11
-                    targetCompatibility = JavaVersion.VERSION_11
-                }
-            }
-        }
-    }
-
     if (!path.startsWith(":sample") && !path.endsWith(":test")) {
         apply(plugin = "maven-publish")
         apply(plugin = "signing")
