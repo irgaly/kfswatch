@@ -35,7 +35,7 @@ plugins {
 kotlin {
   sourceSets {
     commonMain {
-      implementation("io.github.irgaly.kfswatch:kfswatch:1.0.0")
+      implementation("io.github.irgaly.kfswatch:kfswatch:1.1.0")
     }
   }
   // ...
@@ -56,7 +56,7 @@ plugins {
 
 dependencies {
   // You can use as JVM library directly
-  implementation("io.github.irgaly.kfswatch:kfswatch:1.0.0")
+  implementation("io.github.irgaly.kfswatch:kfswatch:1.1.0")
   // ...
 }
 ```
