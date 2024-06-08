@@ -40,11 +40,11 @@ jobs:
       - name: iOS Build
         if: contains(matrix.platform, 'macos')
         run: |
-          ./gradlew :kfswatch:linkDebugTestIosX64
+          ./gradlew :kfswatch:linkDebugTestIosSimulatorArm64
       - name: macOS Build
         if: contains(matrix.platform, 'macos')
         run: |
-          ./gradlew :kfswatch:linkDebugTestMacosX64
+          ./gradlew :kfswatch:linkDebugTestMacosArm64
       - name: JVM Test
         run: |
           ./gradlew :kfswatch:jvmTest
@@ -76,11 +76,11 @@ jobs:
       - name: iOS Test
         if: contains(matrix.platform, 'macos')
         run: |
-          ./gradlew :kfswatch:iosX64Test
+          ./gradlew :kfswatch:iosSimulatorArm64Test
       - name: macOS Test
         if: contains(matrix.platform, 'macos')
         run: |
-          ./gradlew :kfswatch:macosX64Test
+          ./gradlew :kfswatch:macosArm64Test
       - name: Stop Gradle on Windows
         if: contains(matrix.platform, 'windows')
         run: |
@@ -94,8 +94,8 @@ jobs:
           path: |
             **/build/reports/tests/jvmTest
             **/build/reports/tests/jsNodeTest
-            **/build/reports/tests/macosX64Test
-            **/build/reports/tests/iosX64Test
+            **/build/reports/tests/macosArm64Test
+            **/build/reports/tests/iosSimulatorArm64Test
       - uses: actions/upload-artifact@v4
         if: always() && contains(matrix.platform, 'ubuntu')
         with:
