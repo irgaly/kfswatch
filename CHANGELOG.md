@@ -7,7 +7,7 @@
 
 #### Maintenance
 
-* CI: Run Arm64 Test on macOS #77 [#77](https://github.com/irgaly/kfswatch/pull/77)
+* CI: Run Arm64 Test on macOS [#77](https://github.com/irgaly/kfswatch/pull/77)
 
 # v1.1.0 - 2024/06/02 JST
 
