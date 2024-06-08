@@ -1,3 +1,14 @@
+# v1.2.0 - 2024/06/08 JST
+
+#### Improvement
+
+* Support watchosDeviceArm64 target [#76](https://github.com/irgaly/kfswatch/pull/76)
+* Support linuxArm64 target [#78](https://github.com/irgaly/kfswatch/pull/78)
+
+#### Maintenance
+
+* CI: Run Arm64 Test on macOS #77 [#77](https://github.com/irgaly/kfswatch/pull/77)
+
 # v1.1.0 - 2024/06/02 JST
 
 #### Maintenance
