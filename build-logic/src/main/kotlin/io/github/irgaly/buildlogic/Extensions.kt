@@ -123,6 +123,7 @@ fun Project.configureMultiplatformLibrary() {
         macosArm64() // Apple macOS on Apple Silicon platforms
         // Linux
         linuxX64() // Linux on x86_64 platforms
+        linuxArm64() // Linux on ARM64 platforms
         // Windows
         mingwX64() // 64-bit Microsoft Windows
         // JS
