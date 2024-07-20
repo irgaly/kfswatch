@@ -23,10 +23,10 @@ internal actual class Files {
                 val fs = fs()
                 fs.access(path).then {
                     continuation.resume(true)
-                    it
+                    null
                 }.catch {
                     continuation.resume(false)
-                    it
+                    null
                 }
             }
         }
@@ -39,10 +39,10 @@ internal actual class Files {
                     val fs = fs()
                     fs.mkdir(directoryPath, fsMkdirOptions()).then {
                         continuation.resume(true)
-                        it
+                        null
                     }.catch {
                         continuation.resume(false)
-                        it
+                        null
                     }
                 }
             }

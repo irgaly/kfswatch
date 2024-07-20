@@ -57,13 +57,13 @@ actual class Files {
                 val fs = fs()
                 val path = path()
                 val os = os()
-                fs.mkdtemp(path.join(os.tmpdir(), "temp_")).then { path ->
-                    continuation.resume(path.toString())
-                    path
+                fs.mkdtemp(path.join(os.tmpdir(), "temp_")).then { directoryPath ->
+                    continuation.resume(directoryPath.toString())
+                    null
                 }.catch { error ->
                     @Suppress("UNCHECKED_CAST_TO_EXTERNAL_INTERFACE")
                     continuation.resumeWithException(IllegalStateException((error as Error).message.toString()))
-                    error
+                    null
                 }
             }
         }
@@ -87,10 +87,10 @@ actual class Files {
                     val fs = fs()
                     fs.mkdir(path).then {
                         continuation.resume(true)
-                        it
+                        null
                     }.catch {
                         continuation.resume(false)
-                        it
+                        null
                     }
                 }
             }
@@ -103,22 +103,24 @@ actual class Files {
                     val fs = fs()
                     // change イベントのためになるべく上書きで更新する
                     // * macOS ではこの処理でも rename イベントになってしまう
-                    fs.open(path, "r+").then { handle ->
-                        handle.write(text, 1).then { result ->
+                    fs.open(path, "r+").then<JsAny?> { handle ->
+                        handle.write(text, 0).then<JsAny?> { result ->
                             handle.truncate(result.bytesWritten)
-                        }.then {
+                        }.catch {
+                            null
+                        }.finally {
                             handle.close()
                         }
                     }.then {
                         continuation.resume(true)
-                        it
+                        null
                     }.catch {
                         fs.writeFile(path, text).then {
                             continuation.resume(true)
-                            it
+                            null
                         }.catch {
                             continuation.resume(false)
-                            it
+                            null
                         }
                     }
                 }
@@ -130,14 +132,14 @@ actual class Files {
                 // destination が空の directory なら先に削除する
                 fs.rmdir(destination).catch {
                     // prevent Error: ENOENT: no such file or directory
-                    it
+                    null
                 }.finally {
                     fs.rename(source, destination).then {
                         continuation.resume(true)
-                        it
+                        null
                     }.catch {
                         continuation.resume(false)
-                        it
+                        null
                     }
                 }
             }
@@ -150,10 +152,10 @@ actual class Files {
                     val fs = fs()
                     fs.rm(path, fsRmOptions()).then {
                         continuation.resume(true)
-                        it
+                        null
                     }.catch {
                         continuation.resume(false)
-                        it
+                        null
                     }
                 }
             }

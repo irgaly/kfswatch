@@ -56,7 +56,7 @@ actual class Files {
                     // * macOS ではこの処理でも rename イベントになってしまう
                     @Suppress("UnsafeCastFromDynamic")
                     fs.open(path, "r+").then { handle ->
-                        handle.write(text, 1).then { result ->
+                        handle.write(text, 0).then { result ->
                             handle.truncate(result.bytesWritten)
                         }.then {
                             handle.close()
