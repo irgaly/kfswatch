@@ -15,9 +15,9 @@ private external interface FsSync : JsAny {
     fun watch(filename: String, listener: (eventType: String, filename: String?) -> Unit): FsWatcher
 }
 
-private fun JsArray<JsString>.toArray(): Array<String> {
-    return (0..length).map { index ->
-        get(index) as String
+private fun jsArrayToArray(array: JsArray<JsString>): Array<String> {
+    return (0..array.length).map { index ->
+        array[index].toString()
     }.toTypedArray()
 }
 
@@ -197,7 +197,7 @@ internal actual class FileWatcher actual constructor(
                     }
                 }
                 children.addAll(
-                    fs.readdirSync(targetDirectory).toArray()
+                    jsArrayToArray(fs.readdirSync(targetDirectory))
                 )
                 watchers[targetDirectoryPath] = Watcher(
                     parentWatcher,
