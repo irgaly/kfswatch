@@ -46,7 +46,7 @@ private external interface Error: JsAny {
     val message: JsString
 }
 
-private fun fsRmOptions(): JsAny = js("{recursive: true, force: true}")
+private fun fsRmOptions(): JsAny = js("({recursive: true, force: true})")
 
 actual class Files {
     actual companion object {

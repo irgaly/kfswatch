@@ -12,7 +12,7 @@ private external interface FsPromises: JsAny {
     fun mkdir(path: String, options: JsAny): Promise<JsString>
 }
 
-private fun fsMkdirOptions(): JsAny = js("{recursive: true}")
+private fun fsMkdirOptions(): JsAny = js("({recursive: true})")
 
 internal actual class Files {
     actual companion object {
