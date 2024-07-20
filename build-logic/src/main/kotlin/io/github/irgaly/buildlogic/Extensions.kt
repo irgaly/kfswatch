@@ -11,6 +11,7 @@ import org.gradle.kotlin.dsl.configure
 import org.gradle.kotlin.dsl.getByType
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
 import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
+import org.jetbrains.kotlin.gradle.targets.js.dsl.ExperimentalWasmDsl
 import java.io.ByteArrayOutputStream
 
 /**
@@ -128,6 +129,11 @@ fun Project.configureMultiplatformLibrary() {
         mingwX64() // 64-bit Microsoft Windows
         // JS
         js(IR) {
+            browser()
+            nodejs()
+        }
+        @OptIn(ExperimentalWasmDsl::class)
+        wasmJs {
             browser()
             nodejs()
         }
