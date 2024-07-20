@@ -4,6 +4,7 @@
 .idea/inspectionProfiles
 .idea/androidTestResultsUserPreferences.xml
 .idea/other.xml
+.idea/runConfigurations.xml
 
 # Kotlin
 .kotlin
