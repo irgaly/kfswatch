@@ -26,7 +26,6 @@ private external interface Stats : JsAny {
 }
 
 private external interface FsWatcher : JsAny {
-    fun isDirectory(): Boolean
     fun on(eventName: String, listener: (event: JsAny) -> Unit)
     fun close()
 }
