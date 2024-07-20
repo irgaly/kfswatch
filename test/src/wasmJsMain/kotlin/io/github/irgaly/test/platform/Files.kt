@@ -128,7 +128,10 @@ actual class Files {
             suspendCoroutine { continuation ->
                 val fs = fs()
                 // destination が空の directory なら先に削除する
-                fs.rmdir(destination).finally {
+                fs.rmdir(destination).catch {
+                    // prevent Error: ENOENT: no such file or directory
+                    it
+                }.finally {
                     fs.rename(source, destination).then {
                         continuation.resume(true)
                         it
