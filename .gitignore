@@ -3,6 +3,7 @@
 .idea/kotlinc.xml
 .idea/inspectionProfiles
 .idea/androidTestResultsUserPreferences.xml
+.idea/other.xml
 
 # Kotlin
 .kotlin
