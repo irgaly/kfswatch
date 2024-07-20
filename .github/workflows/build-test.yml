@@ -25,6 +25,9 @@ jobs:
       - name: Nodejs Build
         run: |
           ./gradlew :kfswatch:jsTestClasses
+      - name: Wasm Build
+        run: |
+          ./gradlew :kfswatch:wasmJsTestClasses
       - name: Android Build
         if: contains(matrix.platform, 'ubuntu')
         run: |
@@ -51,6 +54,9 @@ jobs:
       - name: Nodejs Test
         run: |
           ./gradlew :kfswatch:jsNodeTest
+      - name: Wasm Test
+        run: |
+          ./gradlew :kfswatch:wasmJsNodeTest
       - name: Enable KVM group for Android Emulator
         if: contains(matrix.platform, 'ubuntu')
         run: |
