@@ -1,3 +1,9 @@
+# v1.3.0 - 2024/07/21 JST
+
+#### Improvement
+
+* Support wasmJs target [#89](https://github.com/irgaly/kfswatch/pull/89)
+
 # v1.2.0 - 2024/06/08 JST
 
 #### Improvement
