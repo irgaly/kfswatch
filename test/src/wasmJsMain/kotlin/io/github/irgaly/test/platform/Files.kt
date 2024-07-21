@@ -3,11 +3,50 @@ package io.github.irgaly.test.platform
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.coroutines.suspendCoroutine
+import kotlin.js.Promise
 
-private val fs: dynamic get() = js("require('fs').promises")
-private val fsSync: dynamic get() = js("require('fs')")
-private val path: dynamic get() = js("require('path')")
-private val os: dynamic get() = js("require('os')")
+private fun fs(): FsPromises = js("require('fs').promises")
+private fun fsSync(): FsSync = js("require('fs')")
+private fun path(): Path = js("require('path')")
+private fun os(): Os = js("require('os')")
+
+private external interface FsPromises: JsAny {
+    fun mkdtemp(prefix: String): Promise<JsString>
+    fun mkdir(path: String): Promise<Nothing?>
+    fun rmdir(path: String): Promise<Nothing?>
+    fun rename(oldPath: String, newPath: String): Promise<Nothing?>
+    fun rm(path: String, options: JsAny): Promise<Nothing?>
+    fun open(path: String, flags: String): Promise<FileHandle>
+    fun writeFile(file: String, data: String): Promise<Nothing?>
+}
+
+private external interface FsSync: JsAny {
+    fun mkdtempSync(prefix: String): String
+}
+
+private external interface FileHandle: JsAny {
+    fun write(buffer: String, position: Int): Promise<WriteResult>
+    fun truncate(len: Int): Promise<Nothing?>
+    fun close(): Promise<Nothing?>
+}
+
+private external interface WriteResult: JsAny {
+    val bytesWritten: Int
+}
+
+private external interface Path: JsAny {
+    fun join(path1: String, path2: String): String
+}
+
+private external interface Os: JsAny {
+    fun tmpdir(): String
+}
+
+private external interface Error: JsAny {
+    val message: JsString
+}
+
+private fun fsRmOptions(): JsAny = js("({recursive: true, force: true})")
 
 actual class Files {
     actual companion object {
@@ -15,11 +54,16 @@ actual class Files {
             if (isBrowser()) {
                 continuation.resume("js-browser-dummy-temporary-directory")
             } else {
-                @Suppress("UnsafeCastFromDynamic")
-                fs.mkdtemp(path.join(os.tmpdir(), "temp_")).then { path ->
-                    continuation.resume(path.unsafeCast<String>())
+                val fs = fs()
+                val path = path()
+                val os = os()
+                fs.mkdtemp(path.join(os.tmpdir(), "temp_")).then { directoryPath ->
+                    continuation.resume(directoryPath.toString())
+                    null
                 }.catch { error ->
-                    continuation.resumeWithException(IllegalStateException(error.message.unsafeCast<String>()))
+                    @Suppress("UNCHECKED_CAST_TO_EXTERNAL_INTERFACE")
+                    continuation.resumeWithException(IllegalStateException((error as Error).message.toString()))
+                    null
                 }
             }
         }
@@ -28,8 +72,10 @@ actual class Files {
             return if (isBrowser()) {
                 "js-browser-dummy-temporary-directory"
             } else {
-                @Suppress("UnsafeCastFromDynamic")
-                fsSync.mkdtempSync(path.join(os.tmpdir(), "temp_")).unsafeCast<String>()
+                val fsSync = fsSync()
+                val path = path()
+                val os = os()
+                fsSync.mkdtempSync(path.join(os.tmpdir(), "temp_"))
             }
         }
 
@@ -38,11 +84,13 @@ actual class Files {
                 if (isBrowser()) {
                     continuation.resume(true)
                 } else {
-                    @Suppress("UnsafeCastFromDynamic")
+                    val fs = fs()
                     fs.mkdir(path).then {
                         continuation.resume(true)
+                        null
                     }.catch {
                         continuation.resume(false)
+                        null
                     }
                 }
             }
@@ -52,22 +100,27 @@ actual class Files {
                 if (isBrowser()) {
                     continuation.resume(true)
                 } else {
+                    val fs = fs()
                     // change イベントのためになるべく上書きで更新する
                     // * macOS ではこの処理でも rename イベントになってしまう
-                    @Suppress("UnsafeCastFromDynamic")
-                    fs.open(path, "r+").then { handle ->
-                        handle.write(text, 0).then { result ->
+                    fs.open(path, "r+").then<JsAny?> { handle ->
+                        handle.write(text, 0).then<JsAny?> { result ->
                             handle.truncate(result.bytesWritten)
-                        }.then {
+                        }.catch {
+                            null
+                        }.finally {
                             handle.close()
                         }
                     }.then {
                         continuation.resume(true)
+                        null
                     }.catch {
                         fs.writeFile(path, text).then {
                             continuation.resume(true)
+                            null
                         }.catch {
                             continuation.resume(false)
+                            null
                         }
                     }
                 }
@@ -75,13 +128,18 @@ actual class Files {
 
         actual suspend fun move(source: String, destination: String): Boolean =
             suspendCoroutine { continuation ->
+                val fs = fs()
                 // destination が空の directory なら先に削除する
-                @Suppress("UnsafeCastFromDynamic")
-                fs.rmdir(destination).finally {
+                fs.rmdir(destination).catch {
+                    // prevent Error: ENOENT: no such file or directory
+                    null
+                }.finally {
                     fs.rename(source, destination).then {
                         continuation.resume(true)
+                        null
                     }.catch {
                         continuation.resume(false)
+                        null
                     }
                 }
             }
@@ -91,11 +149,13 @@ actual class Files {
                 if (isBrowser()) {
                     continuation.resume(true)
                 } else {
-                    @Suppress("UnsafeCastFromDynamic")
-                    fs.rm(path, js("{recursive: true, force: true}")).then {
+                    val fs = fs()
+                    fs.rm(path, fsRmOptions()).then {
                         continuation.resume(true)
+                        null
                     }.catch {
                         continuation.resume(false)
+                        null
                     }
                 }
             }

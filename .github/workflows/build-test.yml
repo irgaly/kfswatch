@@ -25,6 +25,9 @@ jobs:
       - name: Nodejs Build
         run: |
           ./gradlew :kfswatch:jsTestClasses
+      - name: Wasm Build
+        run: |
+          ./gradlew :kfswatch:wasmJsTestClasses
       - name: Android Build
         if: contains(matrix.platform, 'ubuntu')
         run: |
@@ -51,6 +54,9 @@ jobs:
       - name: Nodejs Test
         run: |
           ./gradlew :kfswatch:jsNodeTest
+      - name: Wasm Test
+        run: |
+          ./gradlew :kfswatch:wasmJsNodeTest
       - name: Enable KVM group for Android Emulator
         if: contains(matrix.platform, 'ubuntu')
         run: |
@@ -94,6 +100,7 @@ jobs:
           path: |
             **/build/reports/tests/jvmTest
             **/build/reports/tests/jsNodeTest
+            **/build/reports/tests/wasmJsNodeTest
             **/build/reports/tests/macosArm64Test
             **/build/reports/tests/iosSimulatorArm64Test
       - uses: actions/upload-artifact@v4
@@ -103,6 +110,7 @@ jobs:
           path: |
             **/build/reports/tests/jvmTest
             **/build/reports/tests/jsNodeTest
+            **/build/reports/tests/wasmJsNodeTest
             **/build/reports/tests/linuxX64Test
             **/build/reports/androidTests/managedDevice/allDevices
             **/build/reports/androidTests/connected
@@ -113,4 +121,5 @@ jobs:
           path: |
             **/build/reports/tests/jvmTest
             **/build/reports/tests/jsNodeTest
+            **/build/reports/tests/wasmJsNodeTest
             **/build/reports/tests/mingwX64Test
