@@ -13,8 +13,8 @@
     {
       "groupName": "Kotlin",
       "matchPackageNames": [
-        "org.jetbrains.kotlin:kotlin-{/,}**",
-        "org.jetbrains.kotlin.{/,}**"
+        "org.jetbrains.kotlin:kotlin-*",
+        "org.jetbrains.kotlin.*"
       ]
     },
     {
@@ -28,7 +28,7 @@
       "groupName": "Kotest",
       "matchPackageNames": [
         "io.kotest.multiplatform",
-        "io.kotest:kotest-{/,}**"
+        "io.kotest:kotest-*"
       ]
     }
   ]
