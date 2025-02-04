@@ -1,20 +1,20 @@
 {
   "extends": [
-    "config:base",
+    "config:recommended",
     "schedule:quarterly"
   ],
   "packageRules": [
     {
-      "updateTypes": [
+      "matchUpdateTypes": [
         "patch"
       ],
       "enabled": false
     },
     {
       "groupName": "Kotlin",
-      "matchPackagePrefixes": [
-        "org.jetbrains.kotlin:kotlin-",
-        "org.jetbrains.kotlin."
+      "matchPackageNames": [
+        "org.jetbrains.kotlin:kotlin-*",
+        "org.jetbrains.kotlin.*"
       ]
     },
     {
@@ -26,11 +26,9 @@
     },
     {
       "groupName": "Kotest",
-      "matchPackagePrefixes": [
-        "io.kotest:kotest-"
-      ],
       "matchPackageNames": [
-        "io.kotest.multiplatform"
+        "io.kotest.multiplatform",
+        "io.kotest:kotest-*"
       ]
     }
   ]
