@@ -46,9 +46,9 @@ compose = ["compose-material3", "compose-uiTooling", "compose-activity"]
 [plugins]
 compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotest-multiplatform = { id = "io.kotest.multiplatform", version.ref = "kotest" }
-buildlogic-multiplatform-library = { id = "build-logic.multiplatform.library", version = "unspecified" }
-buildlogic-android-application = { id = "build-logic.android.application", version = "unspecified" }
-buildlogic-android-library = { id = "build-logic.android.library", version = "unspecified" }
+buildlogic-multiplatform-library = { id = "build-logic.multiplatform.library" }
+buildlogic-android-application = { id = "build-logic.android.application" }
+buildlogic-android-library = { id = "build-logic.android.library" }
 dokka = { id = "org.jetbrains.dokka", version = "2.0.0" }
 nexus-publish = { id = "io.github.gradle-nexus.publish-plugin", version = "2.0.0" }
 android-junit5 = { id = "de.mannodermaus.android-junit5", version = "1.11.2.0" }
