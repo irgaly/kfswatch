@@ -110,11 +110,10 @@ subprojects {
 nexusPublishing {
     repositories {
         sonatype {
-            // io.github.irgaly staging profile
-            stagingProfileId = "6c098027ed608f"
-            nexusUrl = uri("https://s01.oss.sonatype.org/service/local/")
+            stagingProfileId = libs.versions.kfswatch.get()
+            nexusUrl = uri("https://ossrh-staging-api.central.sonatype.com/service/local/")
             snapshotRepositoryUrl =
-                uri("https://s01.oss.sonatype.org/content/repositories/snapshots/")
+                uri("https://central.sonatype.com/repository/maven-snapshots/")
         }
     }
 }

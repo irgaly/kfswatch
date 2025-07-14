@@ -16,6 +16,10 @@ jobs:
           distribution: temurin
           java-version: 17
       - uses: ./.github/actions/gradle-cache
+      - name: Set Staging version
+        run: |
+          sed -i "" -E "s/^kfswatch = \"(.*)\"$/kfswatch = \"\\1-pr${{ github.event.pull_request.number }}.${{ github.run_number }}.${{ github.run_attempt }}\"/g" gradle/libs.versions.toml
+          grep "^kfswatch" gradle/libs.versions.toml
       - name: Deploy to Maven Central
         env:
           ORG_GRADLE_PROJECT_sonatypeUsername: ${{ secrets.MAVEN_CENTRAL_USERNAME_TOKEN }}
