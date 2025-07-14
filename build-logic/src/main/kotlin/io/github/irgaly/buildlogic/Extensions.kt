@@ -103,7 +103,6 @@ fun Project.configureMultiplatformLibrary() {
                 publishAllLibraryVariants()
             }
         }
-        targetHierarchy.default()
         // Java jar
         jvm()
         // iOS
