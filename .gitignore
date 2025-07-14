@@ -1,10 +1,7 @@
-.idea/.gitignore
-.idea/runConfigurations
-.idea/kotlinc.xml
-.idea/inspectionProfiles
-.idea/androidTestResultsUserPreferences.xml
-.idea/other.xml
-.idea/runConfigurations.xml
+.idea/*
+!.idea/codeStyles
+!.idea/dictionaries
+!.idea/externalDependencies.xml
 
 # Kotlin
 .kotlin
