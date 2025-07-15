@@ -7,6 +7,7 @@ gradle-android = "8.9.1"
 gradle-android-compile-sdk = "34"
 gradle-android-target-sdk = "34"
 gradle-android-min-sdk = "21"
+junit5-android-test = "1.8.0"
 
 [libraries]
 gradle-kotlin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
@@ -27,8 +28,8 @@ test-kotest-engine = { module = "io.kotest:kotest-framework-engine", version.ref
 test-mockk = { module = "io.mockk:mockk", version = "1.14.4" }
 test-turbine = { module = "app.cash.turbine:turbine", version = "1.2.0" }
 test-android-junit5 = { module = "org.junit.jupiter:junit-jupiter-api", version = "5.12.2" }
-test-android-junit5-core = { module = "de.mannodermaus.junit5:android-test-core", version = "1.7.0" }
-test-android-junit5-runner = { module = "de.mannodermaus.junit5:android-test-runner", version = "1.8.0" }
+test-android-junit5-core = { module = "de.mannodermaus.junit5:android-test-core", version.ref = "junit5-android-test" }
+test-android-junit5-runner = { module = "de.mannodermaus.junit5:android-test-runner", version.ref = "junt5-android-test" }
 test-android-runner = { module = "androidx.test:runner", version = "1.6.1" }
 korlibs-time = { module = "com.soywiz.korge:korlibs-time", version = "5.4.0" }
 kfswatch = { module = "io.github.irgaly.kfswatch:kfswatch", version.ref = "kfswatch" }
