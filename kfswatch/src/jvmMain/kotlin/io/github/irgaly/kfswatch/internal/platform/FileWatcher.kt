@@ -33,6 +33,16 @@ internal actual class FileWatcher actual constructor(
     private val threadLock = Semaphore(1)
     private var watchService: WatchService? = null
     private val keys: MutableMap<PlatformPath, WatchKey> = mutableMapOf()
+    private val needsSensitivityHigh: Boolean by lazy {
+        // https://github.com/irgaly/kfswatch/issues/138#issuecomment-3157345581
+        // JVM on macOSかつ、JVM 19未満ではPolling intervalがデフォルトで10秒であるため
+        // SensitivityWatchEventModifier.HIGHを指定し、Polling intervalを2秒とする必要がある
+        // JDK 19以降ではPolling intervalはデフォルトで2秒であり
+        // JDK 21以降ではSensitivityWatchEventModifierは設定しても無視される
+        val isMacos = Platform.isJvmMacos
+        val runtimeVersion = System.getProperty("java.specification.version").toDouble()
+        (isMacos && runtimeVersion < 19.0)
+    }
 
     actual fun start(targetDirectories: List<String>) {
         lock.withLock {
@@ -60,16 +70,25 @@ internal actual class FileWatcher actual constructor(
                     if (watchService == null) {
                         watchService = FileSystems.getDefault().newWatchService()
                     }
-                    val key = targetFile.toPath().register(
-                        watchService,
-                        arrayOf(
-                            StandardWatchEventKinds.ENTRY_CREATE,
-                            StandardWatchEventKinds.ENTRY_DELETE,
-                            StandardWatchEventKinds.ENTRY_MODIFY
-                        ),
-                        // JVM on macOS のポーリング実装で、2秒程度のポーリングとする独自オプション
-                        SensitivityWatchEventModifier.HIGH
-                    )
+                    val key =
+                        if (needsSensitivityHigh) {
+                            targetFile.toPath().register(
+                                watchService,
+                                arrayOf(
+                                    StandardWatchEventKinds.ENTRY_CREATE,
+                                    StandardWatchEventKinds.ENTRY_DELETE,
+                                    StandardWatchEventKinds.ENTRY_MODIFY
+                                ),
+                                SensitivityWatchEventModifier.HIGH
+                            )
+                        } else {
+                            targetFile.toPath().register(
+                                watchService,
+                                StandardWatchEventKinds.ENTRY_CREATE,
+                                StandardWatchEventKinds.ENTRY_DELETE,
+                                StandardWatchEventKinds.ENTRY_MODIFY,
+                            )
+                        }
                     keys[targetDirectoryPath] = key
                     onStart(targetDirectory)
                 } catch (error: IOException) {

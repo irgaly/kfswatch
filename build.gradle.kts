@@ -18,7 +18,7 @@ subprojects {
     }
     pluginManager.withPlugin("org.jetbrains.kotlin.multiplatform") {
         extensions.configure<KotlinProjectExtension> {
-            jvmToolchain(17)
+            jvmToolchain(21)
         }
         extensions.configure<KotlinMultiplatformExtension> {
             sourceSets {
