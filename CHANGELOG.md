@@ -1,3 +1,9 @@
+# v1.3.0 - 2025/07/10 JST
+
+#### Fix
+
+* Fix: SensitivityWatchEventModifier crash on Linux JVM [#139](https://github.com/irgaly/kfswatch/pull/139)
+
 # v1.3.0 - 2024/07/21 JST
 
 #### Improvement
