@@ -7,7 +7,7 @@ gradle-android = "8.11.1"
 gradle-android-compile-sdk = "34"
 gradle-android-target-sdk = "34"
 gradle-android-min-sdk = "21"
-junit5-android-test = "1.8.0"
+junit5-android-test = "1.9.0"
 
 [libraries]
 gradle-kotlin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
