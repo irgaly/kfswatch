@@ -9,10 +9,13 @@ import org.gradle.api.artifacts.VersionCatalog
 import org.gradle.api.artifacts.VersionCatalogsExtension
 import org.gradle.kotlin.dsl.configure
 import org.gradle.kotlin.dsl.getByType
+import org.gradle.kotlin.dsl.newInstance
+import org.gradle.process.ExecOperations
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
 import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
 import org.jetbrains.kotlin.gradle.targets.js.dsl.ExperimentalWasmDsl
 import java.io.ByteArrayOutputStream
+import javax.inject.Inject
 
 /**
  * android build 共通設定を適用する
@@ -78,12 +81,18 @@ fun VersionCatalog.pluginId(name: String): String {
     return findPlugin(name).get().get().pluginId
 }
 
+interface InjectedExecOps {
+    @get:Inject
+    val execOperations: ExecOperations
+}
+
 /**
  * Execute shell command
  */
 fun Project.execute(vararg commands: String): String {
     val out = ByteArrayOutputStream()
-    exec {
+    val injected = objects.newInstance<InjectedExecOps>()
+    injected.execOperations.exec {
         commandLine = listOf("sh", "-c") + commands
         standardOutput = out
         isIgnoreExitValue = true
