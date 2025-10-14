@@ -12,8 +12,8 @@ import org.gradle.kotlin.dsl.getByType
 import org.gradle.kotlin.dsl.newInstance
 import org.gradle.process.ExecOperations
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
+import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
-import org.jetbrains.kotlin.gradle.targets.js.dsl.ExperimentalWasmDsl
 import java.io.ByteArrayOutputStream
 import javax.inject.Inject
 
@@ -109,10 +109,9 @@ fun Project.configureMultiplatformLibrary() {
         pluginManager.withPlugin("com.android.library") {
             // Android AAR
             androidTarget {
-                publishAllLibraryVariants()
+                publishLibraryVariants("release", "debug")
             }
         }
-        targetHierarchy.default()
         // Java jar
         jvm()
         // iOS

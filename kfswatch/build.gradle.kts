@@ -17,6 +17,7 @@ kotlin {
             linkerOpts("-lrpcrt4")
         }
     }
+    applyDefaultHierarchyTemplate()
     sourceSets {
         commonMain {
             dependencies {
