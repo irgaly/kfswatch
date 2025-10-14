@@ -8,7 +8,7 @@ android {
     defaultConfig {
         applicationId = "io.github.irgaly.kfswatch.sample"
         versionName = libs.versions.kfswatch.get()
-        minSdk = 21
+        minSdk = 26
     }
 }
 

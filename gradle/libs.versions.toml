@@ -6,7 +6,7 @@ kotest = "6.0.4"
 gradle-android = "8.13.0"
 gradle-android-compile-sdk = "34"
 gradle-android-target-sdk = "34"
-gradle-android-min-sdk = "21"
+gradle-android-min-sdk = "26"
 junit5-android-test = "1.9.0"
 
 [libraries]
