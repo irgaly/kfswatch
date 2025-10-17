@@ -1,5 +1,5 @@
 import com.android.build.api.dsl.ManagedVirtualDevice
-import org.jetbrains.dokka.gradle.DokkaTask
+import org.jetbrains.dokka.gradle.tasks.DokkaGeneratePublicationTask
 
 plugins {
     alias(libs.plugins.buildlogic.multiplatform.library)
@@ -68,9 +68,8 @@ android {
     }
 }
 
-val dokkaHtml by tasks.getting(DokkaTask::class)
+val dokkaGeneratePublicationHtml by tasks.getting(DokkaGeneratePublicationTask::class)
 val javadocJar by tasks.registering(Jar::class) {
-    dependsOn(dokkaHtml)
-    from(dokkaHtml.outputDirectory)
+    from(dokkaGeneratePublicationHtml.outputDirectory)
     archiveClassifier = "javadoc"
 }
