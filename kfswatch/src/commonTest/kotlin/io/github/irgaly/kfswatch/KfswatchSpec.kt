@@ -408,6 +408,15 @@ class KfswatchSpec : DescribeFunSpec({
                             )
                         }
 
+                        Platform.isJvmWindows -> {
+                            awaitEvents(
+                                Event(KfsEvent.Delete, "file1"),
+                                Event(KfsEvent.Delete, "file2"),
+                                Event(KfsEvent.Create, "file2"),
+                                Event(KfsEvent.Modify, "file2")
+                            )
+                        }
+
                         (Platform.isLinux || Platform.isAndroid) -> {
                             // Linux, Android では Delete - Create で通知される
                             awaitEvents(
