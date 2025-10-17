@@ -1,3 +1,10 @@
+# v1.3.0 - 2025/10/18 JST
+
+#### Maintenance
+
+* Update: kotest v6.0.4, Kotlin v2.2.0, Android minSdk =
+  26 [#155](https://github.com/irgaly/kfswatch/pull/155)
+
 # v1.3.0 - 2025/08/10 JST
 
 #### Fix
