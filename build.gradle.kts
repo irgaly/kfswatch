@@ -3,7 +3,8 @@ import org.jetbrains.kotlin.gradle.dsl.KotlinProjectExtension
 
 plugins {
     kotlin("multiplatform") version libs.versions.kotlin apply false
-    alias(libs.plugins.kotest.multiplatform) apply false
+    alias(libs.plugins.ksp) apply false
+    alias(libs.plugins.kotest) apply false
     alias(libs.plugins.buildlogic.multiplatform.library) apply false
     alias(libs.plugins.buildlogic.android.application) apply false
     alias(libs.plugins.buildlogic.android.library) apply false

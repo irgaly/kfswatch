@@ -6,6 +6,8 @@ plugins {
     alias(libs.plugins.buildlogic.android.library)
     alias(libs.plugins.dokka)
     alias(libs.plugins.android.junit5)
+    alias(libs.plugins.ksp)
+    alias(libs.plugins.kotest)
 }
 
 kotlin {
@@ -15,6 +17,7 @@ kotlin {
             linkerOpts("-lrpcrt4")
         }
     }
+    applyDefaultHierarchyTemplate()
     sourceSets {
         commonMain {
             dependencies {
