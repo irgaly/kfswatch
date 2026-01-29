@@ -1,5 +1,6 @@
 import com.android.build.api.dsl.ManagedVirtualDevice
 import org.jetbrains.dokka.gradle.tasks.DokkaGeneratePublicationTask
+import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsPlugin.Companion.kotlinNodeJsEnvSpec
 
 plugins {
     alias(libs.plugins.buildlogic.multiplatform.library)
@@ -40,6 +41,10 @@ kotlin {
 
 dependencies {
     androidTestRuntimeOnly(libs.test.android.junit5.runner)
+}
+
+kotlinNodeJsEnvSpec.apply {
+    version = "24.9.0"
 }
 
 android {

@@ -96,14 +96,14 @@ class KfsDirectoryWatcher(
      * String?: a watching directory or null
      *
      * * JVM: WatchService: Overflow event. targetDirectory is not null
-     *     * WatchService has buffer, so Overflow has happen with many events (about 6000 events)
+     *     * WatchService has buffer, so Overflow has happened with many events (about 6000 events)
      * * Nodejs: fs.watch: No overflow event
      * * Android: FileObserver: No overflow event
      * * iOS, macOS: Kernel Queues: No overflow event
      * * Linux: inotify: Overflow event. targetDirectory is null
      *     * inotify has Overflow event, but it's rarely happen
      * * Windows: ReadDirectoryChangesW: Overflow event. targetDirectory is not null
-     *     * ReadDirectoryChangesW has buffer, so Overflow has happen with many events (about 1000 events)
+     *     * ReadDirectoryChangesW has buffer, so Overflow has happened with many events (about 1000 events)
      */
     val onOverflowFlow: Flow<String?> = onOverflowMutableSharedFlow.asSharedFlow()
 

@@ -47,6 +47,11 @@ class KfswatchSpec : DescribeFunSpec({
 
     suspend fun mkdirs(path: String) {
         io.github.irgaly.kfswatch.internal.platform.Files.mkdirs(path)
+        if (Platform.isNodejsMacos) {
+            // Nodejs on macOSで監視開始時に監視対象のchangeイベントが流れることがあるため
+            // 余裕を持って待つ
+            delay(100.milliseconds)
+        }
     }
 
     suspend fun KfsDirectoryWatcher.addWait(vararg targets: String) {
