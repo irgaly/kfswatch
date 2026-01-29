@@ -1,6 +1,6 @@
 [versions]
 kfswatch = "1.4.0"
-kotlin = "2.2.0"
+kotlin = "2.3.0"
 kotlinx-coroutines = "1.10.1"
 kotest = "6.0.4"
 gradle-android = "8.13.0"
@@ -46,7 +46,7 @@ compose = ["compose-material3", "compose-uiTooling", "compose-activity"]
 
 [plugins]
 compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
-ksp = { id = "com.google.devtools.ksp", version = "2.2.0-2.0.2" }
+ksp = { id = "com.google.devtools.ksp", version = "2.3.5" }
 kotest = { id = "io.kotest", version.ref = "kotest" }
 buildlogic-multiplatform-library = { id = "build-logic.multiplatform.library" }
 buildlogic-android-application = { id = "build-logic.android.application" }
