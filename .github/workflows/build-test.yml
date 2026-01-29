@@ -93,7 +93,7 @@ jobs:
           # Windows で gradle cache を保存するために
           # .gradle/caches/8.0/kotlin-dsl/kotlin-dsl.lock の使用中ロックを解除する
           ./gradlew --stop
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         if: always() && contains(matrix.platform, 'macos')
         with:
           name: test-results-macos
@@ -103,7 +103,7 @@ jobs:
             **/build/reports/tests/wasmJsNodeTest
             **/build/reports/tests/macosArm64Test
             **/build/reports/tests/iosSimulatorArm64Test
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         if: always() && contains(matrix.platform, 'ubuntu')
         with:
           name: test-results-linux
@@ -114,7 +114,7 @@ jobs:
             **/build/reports/tests/linuxX64Test
             **/build/reports/androidTests/managedDevice/allDevices
             **/build/reports/androidTests/connected
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         if: always() && contains(matrix.platform, 'windows')
         with:
           name: test-results-windows
