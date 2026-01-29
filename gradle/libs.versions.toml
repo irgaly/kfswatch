@@ -53,4 +53,4 @@ buildlogic-android-application = { id = "build-logic.android.application" }
 buildlogic-android-library = { id = "build-logic.android.library" }
 dokka = { id = "org.jetbrains.dokka", version = "2.1.0" }
 nexus-publish = { id = "io.github.gradle-nexus.publish-plugin", version = "2.0.0" }
-android-junit5 = { id = "de.mannodermaus.android-junit5", version = "1.14.0.0" }
+android-junit5 = { id = "de.mannodermaus.android-junit5", version = "2.0.1" }
