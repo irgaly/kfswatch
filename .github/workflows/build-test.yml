@@ -31,7 +31,7 @@ jobs:
       - name: Android Build
         if: contains(matrix.platform, 'ubuntu')
         run: |
-          ./gradlew :kfswatch:packageDebugAndroidTest
+          ./gradlew :kfswatch:packageAndroidDeviceTest
       - name: Linux Build
         if: contains(matrix.platform, 'ubuntu')
         run: |
@@ -69,8 +69,8 @@ jobs:
         with:
           api-level: 29
           script: |
-            #./gradlew :kfswatch:pixel6GroupDebugAndroidTest
-            ./gradlew :kfswatch:connectedDebugAndroidTest
+            #./gradlew :kfswatch:pixel6GroupAndroidDeviceTest
+            ./gradlew :kfswatch:connectedAndroidDeviceTest
       - name: Linux Test
         if: contains(matrix.platform, 'ubuntu')
         run: |

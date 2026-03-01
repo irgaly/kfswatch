@@ -1,4 +1,3 @@
-import com.android.build.api.dsl.ManagedVirtualDevice
 import org.jetbrains.dokka.gradle.tasks.DokkaGeneratePublicationTask
 import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsPlugin.Companion.kotlinNodeJsEnvSpec
 
@@ -17,6 +16,33 @@ kotlin {
             linkerOpts("-lrpcrt4")
         }
     }
+    android {
+        namespace = "io.github.irgaly.kfswatch"
+        withDeviceTest {
+            managedDevices {
+                localDevices {
+                    val pixel6android13 by registering {
+                        device = "Pixel 6"
+                        apiLevel = 33 // Android 13
+                    }
+                    val pixel6android8 by registering {
+                        device = "Pixel 6"
+                        apiLevel = 27 // Android 8
+                    }
+                }
+                groups {
+                    register("pixel6") {
+                        targetDevices.addAll(
+                            listOf(
+                                localDevices["pixel6android13"],
+                                localDevices["pixel6android8"],
+                            )
+                        )
+                    }
+                }
+            }
+        }
+    }
     applyDefaultHierarchyTemplate()
     sourceSets {
         commonMain {
@@ -29,7 +55,7 @@ kotlin {
                 implementation(projects.test)
             }
         }
-        val androidInstrumentedTest by getting {
+        val androidDeviceTest by getting {
             dependsOn(commonTest.get())
         }
     }
@@ -37,30 +63,6 @@ kotlin {
 
 kotlinNodeJsEnvSpec.apply {
     version = "24.9.0"
-}
-
-android {
-    namespace = "io.github.irgaly.kfswatch"
-    defaultConfig {
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-    }
-    testOptions {
-        managedDevices {
-            val pixel6android13 by devices.registering(ManagedVirtualDevice::class) {
-                device = "Pixel 6"
-                apiLevel = 33 // Android 13
-            }
-            val pixel6android8 by devices.registering(ManagedVirtualDevice::class) {
-                device = "Pixel 6"
-                apiLevel = 27 // Android 8
-            }
-            groups {
-                register("pixel6") {
-                    targetDevices.addAll(listOf(pixel6android13.get(), pixel6android8.get()))
-                }
-            }
-        }
-    }
 }
 
 val dokkaGeneratePublicationHtml by tasks.getting(DokkaGeneratePublicationTask::class)
