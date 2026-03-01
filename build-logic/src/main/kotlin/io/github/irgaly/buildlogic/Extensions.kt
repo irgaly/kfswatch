@@ -1,9 +1,7 @@
 package io.github.irgaly.buildlogic
 
 import com.android.build.api.dsl.ApplicationExtension
-import com.android.build.api.dsl.CommonExtension
-import com.android.build.gradle.BaseExtension
-import com.android.build.gradle.LibraryExtension
+import com.android.build.api.dsl.KotlinMultiplatformAndroidLibraryExtension
 import org.gradle.api.Project
 import org.gradle.api.artifacts.VersionCatalog
 import org.gradle.api.artifacts.VersionCatalogsExtension
@@ -18,20 +16,14 @@ import java.io.ByteArrayOutputStream
 import javax.inject.Inject
 
 /**
- * android build 共通設定を適用する
+ * android application 共通設定を適用する
  */
 fun Project.configureAndroid() {
-    extensions.configure<BaseExtension> {
-        (this as CommonExtension<*, *, *, *, *, *>).apply {
-            compileSdk = libs.version("gradle-android-compile-sdk").toInt()
-            defaultConfig {
-                minSdk = libs.version("gradle-android-min-sdk").toInt()
-            }
-            if (this is ApplicationExtension) {
-                defaultConfig {
-                    targetSdk = libs.version("gradle-android-target-sdk").toInt()
-                }
-            }
+    extensions.configure<ApplicationExtension> {
+        compileSdk = libs.version("android-compile-sdk").toInt()
+        defaultConfig {
+            minSdk = libs.version("android-min-sdk").toInt()
+            targetSdk = libs.version("android-target-sdk").toInt()
         }
     }
 }
@@ -40,21 +32,19 @@ fun Project.configureAndroid() {
  * android library 共通設定を適用する
  */
 fun Project.configureAndroidLibrary() {
-    extensions.configure<LibraryExtension> {
-        buildFeatures {
-            buildConfig = false
-        }
-        packaging {
-            resources {
-                excludes.add("META-INF/AL2.0")
-                excludes.add("META-INF/LGPL2.1")
-                excludes.add("META-INF/licenses/ASM")
-                pickFirsts.add("win32-x86-64/attach_hotspot_windows.dll")
-                pickFirsts.add("win32-x86/attach_hotspot_windows.dll")
+    extensions.configure<KotlinMultiplatformExtension> {
+        extensions.configure<KotlinMultiplatformAndroidLibraryExtension> {
+            compileSdk = libs.version("android-compile-sdk").toInt()
+            minSdk = libs.version("android-min-sdk").toInt()
+            packaging {
+                resources {
+                    excludes.add("META-INF/AL2.0")
+                    excludes.add("META-INF/LGPL2.1")
+                    excludes.add("META-INF/licenses/ASM")
+                    pickFirsts.add("win32-x86-64/attach_hotspot_windows.dll")
+                    pickFirsts.add("win32-x86/attach_hotspot_windows.dll")
+                }
             }
-        }
-        sourceSets.configureEach {
-            java.srcDirs("src/$name/kotlin")
         }
     }
 }
@@ -106,12 +96,6 @@ fun Project.execute(vararg commands: String): String {
 @OptIn(ExperimentalKotlinGradlePluginApi::class)
 fun Project.configureMultiplatformLibrary() {
     extensions.configure<KotlinMultiplatformExtension> {
-        pluginManager.withPlugin("com.android.library") {
-            // Android AAR
-            androidTarget {
-                publishLibraryVariants("release", "debug")
-            }
-        }
         // Java jar
         jvm()
         // iOS
