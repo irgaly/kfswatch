@@ -20,13 +20,6 @@
         "patch"
       ],
       "enabled": true
-    },
-    {
-      "groupName": "Kotest",
-      "matchPackageNames": [
-        "io.kotest.multiplatform",
-        "io.kotest:kotest-*"
-      ]
     }
   ]
 }
