@@ -11,19 +11,15 @@
       "enabled": false
     },
     {
-      "groupName": "Kotlin, KSP",
+      "groupName": "Kotlin",
       "matchPackageNames": [
-        "com.google.devtools.ksp:com.google.devtools.ksp.gradle.plugin",
-        "org.jetbrains.kotlin:kotlin-*",
+        "org.jetbrains.kotlin:*",
         "org.jetbrains.kotlin.*"
-      ]
-    },
-    {
-      "groupName": "Android Gradle Plugin",
-      "matchPackageNames": [
-        "com.android.application",
-        "com.android.library"
-      ]
+      ],
+      "matchUpdateTypes": [
+        "patch"
+      ],
+      "enabled": true
     },
     {
       "groupName": "Kotest",
