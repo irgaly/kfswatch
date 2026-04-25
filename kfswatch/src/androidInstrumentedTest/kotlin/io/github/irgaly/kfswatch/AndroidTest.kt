@@ -1,9 +1,11 @@
 package io.github.irgaly.kfswatch
 
 import io.kotest.common.KotestInternal
+import io.kotest.core.spec.SpecRef
 import io.kotest.engine.TestEngineLauncher
 import io.kotest.engine.listener.CollectingTestEngineListener
 import io.kotest.engine.test.TestResult
+import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertAll
@@ -11,11 +13,12 @@ import org.junit.jupiter.api.assertAll
 class AndroidTest {
     @OptIn(KotestInternal::class)
     @Test
-    fun commonTest() {
+    fun commonTest() = runTest {
         val listener = CollectingTestEngineListener()
         TestEngineLauncher()
             .withListener(listener)
-            .withClasses(KfswatchSpec::class).launch()
+            .withSpecRefs(SpecRef.Reference(KfswatchSpec::class))
+            .execute()
         listener.tests.map { entry ->
             {
                 val testCase = entry.key
