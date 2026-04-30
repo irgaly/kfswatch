@@ -5,7 +5,6 @@ import io.kotest.core.spec.SpecRef
 import io.kotest.engine.TestEngineLauncher
 import io.kotest.engine.listener.CollectingTestEngineListener
 import io.kotest.engine.test.TestResult
-import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertAll
@@ -13,7 +12,7 @@ import org.junit.jupiter.api.assertAll
 class AndroidTest {
     @OptIn(KotestInternal::class)
     @Test
-    fun commonTest() = runTest {
+    suspend fun commonTest() {
         val listener = CollectingTestEngineListener()
         TestEngineLauncher()
             .withListener(listener)
