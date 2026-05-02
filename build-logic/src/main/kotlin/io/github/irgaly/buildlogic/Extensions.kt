@@ -116,19 +116,15 @@ fun Project.configureMultiplatformLibrary() {
         jvm()
         // iOS
         iosArm64() // Apple iOS on ARM64 platforms (Apple iPhone 5s and newer)
-        iosX64() // Apple iOS simulator on x86_64 platforms
         iosSimulatorArm64() // Apple iOS simulator on Apple Silicon platforms
         // watchOS
         watchosArm64() // Apple watchOS on ARM64_32 platforms (Apple Watch Series 4 and newer)
         watchosDeviceArm64() // Apple watchOS on ARM64 platforms (Apple Watch Series 8 and newer)
-        watchosX64() // Apple watchOS 64-bit simulator (watchOS 7.0 and newer) on x86_64 platforms
         watchosSimulatorArm64() // Apple watchOS simulator on Apple Silicon platforms
         // tvOS
         tvosArm64() // Apple tvOS on ARM64 platforms (Apple TV 4th generation and newer)
-        tvosX64() // Apple tvOS simulator on x86_64 platforms
         tvosSimulatorArm64() // Apple tvOS simulator on Apple Silicon platforms
         // macOS
-        macosX64() // Apple macOS on x86_64 platforms
         macosArm64() // Apple macOS on Apple Silicon platforms
         // Linux
         linuxX64() // Linux on x86_64 platforms
