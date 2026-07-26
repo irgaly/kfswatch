@@ -15,7 +15,6 @@ gradle-android = { module = "com.android.tools.build:gradle", version.ref = "gra
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinx-coroutines" }
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "kotlinx-coroutines" }
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "kotlinx-coroutines" }
-kotlinx-browser = { module = "org.jetbrains.kotlinx:kotlinx-browser", version = "0.5.0" }
 androidx-appcompat = { module = "androidx.appcompat:appcompat", version = "1.7.0" }
 androidx-lifecycle = { module = "androidx.lifecycle:lifecycle-runtime-ktx", version = "2.11.0" }
 compose-bom = { group = "androidx.compose", name = "compose-bom", version = "2026.03.01" }
@@ -25,13 +24,11 @@ compose-uiTooling = { module = "androidx.compose.ui:ui-tooling" }
 test-kotest-runner = { module = "io.kotest:kotest-runner-junit5", version.ref = "kotest" }
 test-kotest-assertions = { module = "io.kotest:kotest-assertions-core", version.ref = "kotest" }
 test-kotest-engine = { module = "io.kotest:kotest-framework-engine", version.ref = "kotest" }
-test-mockk = { module = "io.mockk:mockk", version = "1.14.4" }
 test-turbine = { module = "app.cash.turbine:turbine", version = "1.2.0" }
 test-android-junit5 = { module = "org.junit.jupiter:junit-jupiter-api", version = "5.14.0" }
 test-android-junit5-core = { module = "de.mannodermaus.junit5:android-test-core", version.ref = "junit5-android-test" }
 test-android-junit5-runner = { module = "de.mannodermaus.junit5:android-test-runner", version.ref = "junit5-android-test" }
 test-android-runner = { module = "androidx.test:runner", version = "1.7.0" }
-korlibs-time = { module = "com.soywiz.korge:korlibs-time", version = "5.4.0" }
 kfswatch = { module = "io.github.irgaly.kfswatch:kfswatch", version.ref = "kfswatch" }
 
 [bundles]
