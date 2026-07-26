@@ -6,7 +6,6 @@ plugins {
     alias(libs.plugins.buildlogic.multiplatform.library)
     alias(libs.plugins.buildlogic.android.library)
     alias(libs.plugins.dokka)
-    alias(libs.plugins.android.junit5)
     alias(libs.plugins.ksp)
     alias(libs.plugins.kotest)
 }
@@ -32,15 +31,8 @@ kotlin {
         }
         val androidInstrumentedTest by getting {
             dependsOn(commonTest.get())
-            dependencies {
-                implementation(libs.bundles.test.android.instrumented)
-            }
         }
     }
-}
-
-dependencies {
-    androidTestRuntimeOnly(libs.test.android.junit5.runner)
 }
 
 kotlinNodeJsEnvSpec.apply {
@@ -51,8 +43,6 @@ android {
     namespace = "io.github.irgaly.kfswatch"
     defaultConfig {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        testInstrumentationRunnerArguments["runnerBuilder"] =
-            "de.mannodermaus.junit5.AndroidJUnit5Builder"
     }
     testOptions {
         managedDevices {
