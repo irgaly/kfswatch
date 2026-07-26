@@ -6,7 +6,7 @@
         android:name=".MyApplication"
         android:allowBackup="true"
         android:supportsRtl="false"
-        android:theme="@style/Theme.AppCompat.DayNight.NoActionBar"
+        android:theme="@android:style/Theme.Material.Light.NoActionBar"
         tools:ignore="GoogleAppIndexingWarning">
         <activity
             android:name=".MainActivity"
