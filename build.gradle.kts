@@ -36,6 +36,11 @@ subprojects {
                             implementation(libs.test.kotest.runner)
                         }
                     }
+                    findByName("androidInstrumentedTest")?.apply {
+                        dependencies {
+                            implementation(libs.bundles.test.android.devicetest)
+                        }
+                    }
                 }
             }
         }

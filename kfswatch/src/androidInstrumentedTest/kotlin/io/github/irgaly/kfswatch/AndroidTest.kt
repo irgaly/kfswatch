@@ -1,25 +1,27 @@
 package io.github.irgaly.kfswatch
 
+import io.kotest.assertions.assertSoftly
+import io.kotest.assertions.withClue
 import io.kotest.common.KotestInternal
 import io.kotest.core.spec.SpecRef
 import io.kotest.engine.TestEngineLauncher
 import io.kotest.engine.listener.CollectingTestEngineListener
 import io.kotest.engine.test.TestResult
-import org.junit.jupiter.api.Assertions.assertFalse
-import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.assertAll
+import io.kotest.matchers.shouldBe
+import kotlinx.coroutines.test.runTest
+import org.junit.Test
 
 class AndroidTest {
     @OptIn(KotestInternal::class)
     @Test
-    suspend fun commonTest() {
+    fun commonTest() = runTest {
         val listener = CollectingTestEngineListener()
         TestEngineLauncher()
             .withListener(listener)
             .withSpecRefs(SpecRef.Reference(KfswatchSpec::class))
             .execute()
-        listener.tests.map { entry ->
-            {
+        assertSoftly {
+            for (entry in listener.tests) {
                 val testCase = entry.key
                 val descriptor = testCase.descriptor.path().value
                 val cause = when (val value = entry.value) {
@@ -27,13 +29,13 @@ class AndroidTest {
                     is TestResult.Failure -> value.cause
                     else -> null
                 }
-                assertFalse(entry.value.isErrorOrFailure) {
+                withClue({
                     """$descriptor
                     |${cause?.stackTraceToString()}""".trimMargin()
+                }) {
+                    entry.value.isErrorOrFailure shouldBe false
                 }
             }
-        }.let {
-            assertAll(it)
         }
         println("Total ${listener.tests.size}, Failure ${listener.tests.count { it.value.isErrorOrFailure }}")
     }
