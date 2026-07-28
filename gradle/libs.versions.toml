@@ -15,7 +15,7 @@ kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-c
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "kotlinx-coroutines" }
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "kotlinx-coroutines" }
 androidx-lifecycle = { module = "androidx.lifecycle:lifecycle-runtime-ktx", version = "2.11.0" }
-compose-bom = { group = "androidx.compose", name = "compose-bom", version = "2026.03.01" }
+compose-bom = { group = "androidx.compose", name = "compose-bom", version = "2026.06.01" }
 compose-activity = { module = "androidx.activity:activity-compose", version = "1.13.0" }
 compose-material3 = { module = "androidx.compose.material3:material3" }
 compose-uiTooling = { module = "androidx.compose.ui:ui-tooling" }
