@@ -5,11 +5,10 @@ plugins {
     alias(libs.plugins.kotest)
 }
 
-android {
-    namespace = "io.github.irgaly.test"
-}
-
 kotlin {
+    android {
+        namespace = "io.github.irgaly.test"
+    }
     sourceSets {
         commonMain {
             dependencies {

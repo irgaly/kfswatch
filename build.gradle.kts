@@ -2,7 +2,9 @@ import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
 import org.jetbrains.kotlin.gradle.dsl.KotlinProjectExtension
 
 plugins {
-    kotlin("multiplatform") version libs.versions.kotlin apply false
+    alias(libs.plugins.kotlin.multiplatform) apply false
+    alias(libs.plugins.android.application) apply false
+    alias(libs.plugins.android.library) apply false
     alias(libs.plugins.ksp) apply false
     alias(libs.plugins.kotest) apply false
     alias(libs.plugins.buildlogic.multiplatform.library) apply false
@@ -36,7 +38,7 @@ subprojects {
                             implementation(libs.test.kotest.runner)
                         }
                     }
-                    findByName("androidInstrumentedTest")?.apply {
+                    findByName("androidDeviceTest")?.apply {
                         dependencies {
                             implementation(libs.bundles.test.android.devicetest)
                         }
