@@ -8,10 +8,8 @@ class MultiplatformLibraryPlugin: Plugin<Project> {
         with(target) {
             with(pluginManager) {
                 apply(libs.pluginId("kotlin-multiplatform"))
-                apply(libs.pluginId("android-library"))
             }
             configureMultiplatformLibrary()
-            configureAndroidLibrary()
         }
     }
 }
