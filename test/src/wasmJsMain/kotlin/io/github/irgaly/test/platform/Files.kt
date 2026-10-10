@@ -5,10 +5,17 @@ import kotlin.coroutines.resumeWithException
 import kotlin.coroutines.suspendCoroutine
 import kotlin.js.Promise
 
-private fun fs(): FsPromises = js("require('fs').promises")
-private fun fsSync(): FsSync = js("require('fs')")
-private fun path(): Path = js("require('path')")
-private fun os(): Os = js("require('os')")
+@JsModule("fs/promises")
+private external val fs: FsPromises
+
+@JsModule("fs")
+private external val fsSync: FsSync
+
+@JsModule("path")
+private external val path: Path
+
+@JsModule("os")
+private external val os: Os
 
 private external interface FsPromises: JsAny {
     fun mkdtemp(prefix: String): Promise<JsString>
@@ -54,9 +61,6 @@ actual class Files {
             if (isBrowser()) {
                 continuation.resume("js-browser-dummy-temporary-directory")
             } else {
-                val fs = fs()
-                val path = path()
-                val os = os()
                 fs.mkdtemp(path.join(os.tmpdir(), "temp_")).then { directoryPath ->
                     continuation.resume(directoryPath.toString())
                     null
@@ -72,9 +76,6 @@ actual class Files {
             return if (isBrowser()) {
                 "js-browser-dummy-temporary-directory"
             } else {
-                val fsSync = fsSync()
-                val path = path()
-                val os = os()
                 fsSync.mkdtempSync(path.join(os.tmpdir(), "temp_"))
             }
         }
@@ -84,7 +85,6 @@ actual class Files {
                 if (isBrowser()) {
                     continuation.resume(true)
                 } else {
-                    val fs = fs()
                     fs.mkdir(path).then {
                         continuation.resume(true)
                         null
@@ -100,7 +100,6 @@ actual class Files {
                 if (isBrowser()) {
                     continuation.resume(true)
                 } else {
-                    val fs = fs()
                     // change イベントのためになるべく上書きで更新する
                     // * macOS ではこの処理でも rename イベントになってしまう
                     fs.open(path, "r+").then<JsAny?> { handle ->
@@ -128,7 +127,6 @@ actual class Files {
 
         actual suspend fun move(source: String, destination: String): Boolean =
             suspendCoroutine { continuation ->
-                val fs = fs()
                 // destination が空の directory なら先に削除する
                 fs.rmdir(destination).catch {
                     // prevent Error: ENOENT: no such file or directory
@@ -149,7 +147,6 @@ actual class Files {
                 if (isBrowser()) {
                     continuation.resume(true)
                 } else {
-                    val fs = fs()
                     fs.rm(path, fsRmOptions()).then {
                         continuation.resume(true)
                         null

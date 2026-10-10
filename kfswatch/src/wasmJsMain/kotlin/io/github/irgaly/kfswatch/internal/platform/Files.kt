@@ -5,7 +5,8 @@ import kotlin.coroutines.resumeWithException
 import kotlin.coroutines.suspendCoroutine
 import kotlin.js.Promise
 
-private fun fs(): FsPromises = js("require('fs').promises")
+@JsModule("fs/promises")
+private external val fs: FsPromises
 
 private external interface FsPromises: JsAny {
     fun access(path: String): Promise<Nothing?>
@@ -20,7 +21,6 @@ internal actual class Files {
             if (isBrowser()) {
                 continuation.resumeWithException(UnsupportedOperationException("browser js cannot access to File Storage"))
             } else {
-                val fs = fs()
                 fs.access(path).then {
                     continuation.resume(true)
                     null
@@ -36,7 +36,6 @@ internal actual class Files {
                 if (isBrowser()) {
                     continuation.resumeWithException(UnsupportedOperationException("browser js cannot access to File Storage"))
                 } else {
-                    val fs = fs()
                     fs.mkdir(directoryPath, fsMkdirOptions()).then {
                         continuation.resume(true)
                         null
