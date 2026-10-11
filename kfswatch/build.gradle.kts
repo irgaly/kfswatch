@@ -1,5 +1,6 @@
 import org.jetbrains.dokka.gradle.tasks.DokkaGeneratePublicationTask
 import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsPlugin.Companion.kotlinNodeJsEnvSpec
+import org.jetbrains.kotlin.gradle.targets.wasm.nodejs.WasmNodeJsPlugin.Companion.kotlinNodeJsEnvSpec as kotlinWasmNodeJsEnvSpec
 
 plugins {
     alias(libs.plugins.buildlogic.multiplatform.library)
@@ -62,7 +63,11 @@ kotlin {
 }
 
 kotlinNodeJsEnvSpec.apply {
-    version = "24.9.0"
+    version = "26.11.1"
+}
+
+kotlinWasmNodeJsEnvSpec.apply {
+    version = "26.11.1"
 }
 
 val dokkaGeneratePublicationHtml by tasks.getting(DokkaGeneratePublicationTask::class)
