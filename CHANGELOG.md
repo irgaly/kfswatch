@@ -1,11 +1,17 @@
-# v1.3.0 - 2025/10/18 JST
+# v1.5.0 - 2026/10/11 JST
+
+#### Changes
+
+* remove support: watchosX64, tvosX64, macosX64,
+  iosX64 [#178](https://github.com/irgaly/kfswatch/pull/178)
 
 #### Maintenance
 
-* Update: kotest v6.0.4, Kotlin v2.2.0, Android minSdk =
-  26 [#155](https://github.com/irgaly/kfswatch/pull/155)
+* update kotlin to v2.4.21 [#194](https://github.com/irgaly/kfswatch/pull/194)
+* update AGP 9.0.0, migrate Android Multiplatform Library
+  Plugin [#169](https://github.com/irgaly/kfswatch/pull/169)
 
-# v1.3.0 - 2025/08/10 JST
+# v1.4.0 - 2025/08/10 JST
 
 #### Fix
 
