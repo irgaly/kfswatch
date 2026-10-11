@@ -1,5 +1,12 @@
 package io.github.irgaly.kfswatch.internal.platform
 
+@JsModule("os")
+private external val os: Os
+
+private external interface Os : JsAny {
+    fun platform(): String
+}
+
 private fun typeofWindow(): String = js("typeof window")
 
 @Suppress("unused")
@@ -12,7 +19,7 @@ internal fun isNodejs(): Boolean {
     return (typeofWindow() == "undefined")
 }
 
-private fun getPlatform(): String = js("require('os').platform()")
+private fun getPlatform(): String = os.platform()
 
 @Suppress("unused")
 internal fun isLinux(): Boolean {

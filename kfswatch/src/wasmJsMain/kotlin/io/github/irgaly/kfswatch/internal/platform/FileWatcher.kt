@@ -1,7 +1,10 @@
 package io.github.irgaly.kfswatch.internal.platform
 
-private fun fs(): FsSync = js("require('fs')")
-private fun path(): Path = js("require('path')")
+@JsModule("fs")
+private external val fsSync: FsSync
+
+@JsModule("path")
+private external val path: Path
 private fun json(): JsJson = js("JSON")
 
 private external interface JsJson : JsAny {
@@ -36,12 +39,11 @@ private external interface Path : JsAny {
     fun basename(path: String): String
 }
 
-private external interface Events : JsAny {
+@JsModule("events")
+private external class EventEmitter : JsAny {
     fun once(eventName: String, listener: () -> Unit): JsAny
-    fun emit(eventName: String)
+    fun emit(eventName: String): Boolean
 }
-
-private fun requireEvents(): Events = js("new (require('events'))()")
 
 /**
  * Nodejs fs.watch
@@ -59,7 +61,7 @@ internal actual class FileWatcher actual constructor(
 ) {
     private val watchers: MutableMap<PlatformPath, Watcher> = mutableMapOf()
     private var paused = false
-    private val resumedEvent: Events = requireEvents()
+    private val resumedEvent: EventEmitter = EventEmitter()
 
     private data class Watcher(
         val parentWatcher: FsWatcher?,
@@ -68,8 +70,6 @@ internal actual class FileWatcher actual constructor(
 
     actual fun start(targetDirectories: List<String>) {
         if (isNodejs()) {
-            val fs = fs()
-            val path = path()
             val json = json()
             for (targetDirectoryPath in targetDirectories.map { PlatformPath(it) }
                 .subtract(watchers.keys)) {
@@ -81,11 +81,11 @@ internal actual class FileWatcher actual constructor(
                     )
                     continue
                 }
-                if (!fs.existsSync(targetDirectory)) {
+                if (!fsSync.existsSync(targetDirectory)) {
                     onError(targetDirectory, "directory not exists: $targetDirectory")
                     continue
                 }
-                val stats = fs.statSync(targetDirectory)
+                val stats = fsSync.statSync(targetDirectory)
                 if (!stats.isDirectory()) {
                     onError(targetDirectory, "target is not directory: $targetDirectory")
                     continue
@@ -95,12 +95,12 @@ internal actual class FileWatcher actual constructor(
                 val parentWatcher = if (parent != absolutePath) {
                     // 監視対象が / でなければ監視対象の移動を検出するために親ディレクトリを監視する
                     val targetName = path.basename(absolutePath)
-                    fs.watch(parent) { event: String, filename: String? ->
+                    fsSync.watch(parent) { event: String, filename: String? ->
                         logger?.debug {
                             "fs.watch parent: event = $event, filename = $filename, target = $parent"
                         }
                         if (event == "rename" && filename == targetName) {
-                            if (!fs.existsSync(targetDirectory)) {
+                            if (!fsSync.existsSync(targetDirectory)) {
                                 // 監視対象が削除された
                                 // 監視停止
                                 stop(listOf(targetDirectory))
@@ -109,7 +109,7 @@ internal actual class FileWatcher actual constructor(
                     }
                 } else null
                 val children = mutableSetOf<String>()
-                val watcher = fs.watch(targetDirectory) { event: String, filename: String? ->
+                val watcher = fsSync.watch(targetDirectory) { event: String, filename: String? ->
                     val handleEvent = {
                         logger?.debug {
                             "fs.watch: event = $event, filename = $filename, target = $targetDirectory"
@@ -121,7 +121,7 @@ internal actual class FileWatcher actual constructor(
                                 filename = filename
                             )
                         )
-                        val targetExists = fs.existsSync(targetDirectory)
+                        val targetExists = fsSync.existsSync(targetDirectory)
                         if (!targetExists) {
                             // * 監視対象が移動または削除された
                             // * 監視対象の親ディレクトリが移動または削除された
@@ -133,7 +133,7 @@ internal actual class FileWatcher actual constructor(
                                     val path = checkNotNull(filename)
                                     val beforeExists = children.contains(path)
                                     val afterExists =
-                                        fs.existsSync("$targetDirectory/$path")
+                                        fsSync.existsSync("$targetDirectory/$path")
                                     if (beforeExists) {
                                         if (afterExists) {
                                             // * 対象が削除され、同名の要素が作成された (上書き move など)
@@ -190,13 +190,13 @@ internal actual class FileWatcher actual constructor(
                     logger?.debug {
                         "fs.watch on error: error = ${json.stringify(error)}"
                     }
-                    if (!fs.existsSync(targetDirectory)) {
+                    if (!fsSync.existsSync(targetDirectory)) {
                         // Windows で監視対象ディレクトリが削除された
                         stop(listOf(targetDirectory))
                     }
                 }
                 children.addAll(
-                    jsArrayToArray(fs.readdirSync(targetDirectory))
+                    jsArrayToArray(fsSync.readdirSync(targetDirectory))
                 )
                 watchers[targetDirectoryPath] = Watcher(
                     parentWatcher,
