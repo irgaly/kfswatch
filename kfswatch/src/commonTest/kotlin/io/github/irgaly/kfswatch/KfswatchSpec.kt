@@ -824,6 +824,32 @@ class KfswatchSpec : DescribeFunSpec({
             }
         }
     }
+    describe("ファイルシステムレースコンディション") {
+        it("監視イベント発生直後に子ファイルが削除されてもエラーが発生しない") {
+            turbineScope {
+                val target = "$tempDirectory/race_delete".also { mkdirs(it) }
+                val watcher = createWatcher()
+                val errors = watcher.onErrorFlow.testIn(this)
+                val stops = watcher.onStopFlow.testIn(this)
+                watcher.onEventFlow.test(timeout = 5.seconds) {
+                    watcher.addWait(target)
+                    (0..<20).forEach { index ->
+                        // 20回のファイル作成・リネーム処理中にKfsDirectoryWatcherがイベントを処理することを狙う
+                        val tmpFile = "$target/file_$index.tmp"
+                        Files.writeFile(tmpFile, "test")
+                        Files.move(tmpFile, "$target/file_$index.txt")
+                    }
+                    cancelAndIgnoreRemainingEvents()
+                }
+                // エラーが発生せず、監視も停止していなければOK
+                errors.ensureAllEventsConsumed()
+                errors.cancel()
+                stops.ensureAllEventsConsumed()
+                stops.cancel()
+                watcher.close()
+            }
+        }
+    }
 })
 
 private data class Event(
