@@ -1,3 +1,10 @@
+# v1.5.1 - 2026/11/21 JST
+
+#### Fix
+
+* fix: file removal race condition error on macOS and iOS
+  platforms [#202](https://github.com/irgaly/kfswatch/pull/202)
+
 # v1.5.0 - 2026/10/11 JST
 
 #### Changes
