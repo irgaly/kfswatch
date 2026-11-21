@@ -46,6 +46,7 @@ import platform.darwin.dispatch_semaphore_signal
 import platform.darwin.dispatch_semaphore_wait
 import platform.darwin.kevent
 import platform.darwin.kqueue
+import platform.posix.ENOENT
 import platform.posix.O_EVTONLY
 import platform.posix.errno
 import platform.posix.intptr_t
@@ -312,16 +313,17 @@ internal actual class FileWatcher actual constructor(
                                             checkNotNull(kqueue), targetDirectory, path
                                         ) { errorMessage: String ->
                                             onError(targetDirectory, "registerChild error: $errorMessage")
-                                        }
-                                        if (descriptor == null) {
                                             // 監視停止
                                             status.state = WatchState.Stopping
-                                            break
-                                        } else {
+                                        }
+                                        if (descriptor != null) {
                                             info.childDescriptors[path] = ChildDescriptor(
                                                 targetDirectory, path, descriptor
                                             )
                                             onEvent(targetDirectory, path, FileWatcherEvent.Create)
+                                        }
+                                        if (status.state == WatchState.Stopping) {
+                                            break
                                         }
                                     }
                                 }
@@ -389,12 +391,13 @@ internal actual class FileWatcher actual constructor(
                                             onError(targetDirectory, "registerChild: $errorMessage")
                                             childError = true
                                         }
-                                        if (descriptor == null) {
-                                            break
-                                        } else {
+                                        if (descriptor != null) {
                                             info.childDescriptors[path] = ChildDescriptor(
                                                 targetDirectory, path, descriptor
                                             )
+                                        }
+                                        if (childError) {
+                                            break
                                         }
                                     }
                                     if (childError) {
@@ -645,8 +648,12 @@ internal actual class FileWatcher actual constructor(
         return memScoped {
             val descriptor = open("$targetDirectory/$path", O_EVTONLY)
             if (descriptor <= 0) {
-                val error = checkNotNull(strerror(errno)).toKString()
-                onError("open $targetDirectory/$path : $error")
+                if (errno != ENOENT) {
+                    // 子ファイルはこのタイミングですでにファイルが削除されている可能性があり得る
+                    // それ以外のopen失敗をエラー扱いする
+                    val error = checkNotNull(strerror(errno)).toKString()
+                    onError("open $targetDirectory/$path : $error")
+                }
                 null
             } else {
                 val event = alloc<kevent>()
