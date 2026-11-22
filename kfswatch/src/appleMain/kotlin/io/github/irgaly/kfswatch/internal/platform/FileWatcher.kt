@@ -47,6 +47,8 @@ import platform.darwin.dispatch_semaphore_wait
 import platform.darwin.kevent
 import platform.darwin.kqueue
 import platform.posix.ENOENT
+import platform.posix.EACCES
+import platform.posix.EOPNOTSUPP
 import platform.posix.O_EVTONLY
 import platform.posix.O_NONBLOCK
 import platform.posix.errno
@@ -653,11 +655,20 @@ internal actual class FileWatcher actual constructor(
                 O_EVTONLY or O_NONBLOCK,
             )
             if (descriptor <= 0) {
-                if (errno != ENOENT) {
+                when(errno) {
                     // 子ファイルはこのタイミングですでにファイルが削除されている可能性があり得る
-                    // それ以外のopen失敗をエラー扱いする
-                    val error = checkNotNull(strerror(errno)).toKString()
-                    onError("open $targetDirectory/$path : $error")
+                    ENOENT -> Unit
+                    // 子ファイルがsocketだとopenできず、監視できない
+                    EOPNOTSUPP -> Unit
+                    EACCES -> {
+                        // 子ファイルへのアクセス権限がない
+                        // ファイル変更を監視できないためerrorログは出力するが監視は続行する
+                        logger?.error { "cannot open child file (EACCES), unable to get all modification events for:$path" }
+                    }
+                    else -> {
+                        val error = checkNotNull(strerror(errno)).toKString()
+                        onError("open $targetDirectory/$path : $error")
+                    }
                 }
                 null
             } else {
